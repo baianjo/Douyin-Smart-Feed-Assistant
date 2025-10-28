@@ -141,17 +141,13 @@
         //   - 注释掉或删除该行 → 不发送，使用 API 默认值
         //   - stream: false 是必填项（禁用流式输出）
         //
-        // 🔧 关于 extra_body（厂商特定参数）：
+        // 🔧 关于 vendorSpecific（厂商特定参数）：
         //   • 仅在预设厂商配置中使用（如 GLM 的 thinking 禁用）
         //   • ⚠️ 切勿在所有配置中统一添加！原因：
         //     - 多数 OpenAI 兼容 API 会严格验证参数
         //     - 遇到未知字段会返回 400/422 错误
         //     - 只有明确支持的厂商才能使用特定参数
-        //   • 自定义 API 不应添加 extra_body，保持最小请求体
-        //
-        // 📚 参考资料：
-        //   根据 2025 年调研，Mistral/Gemini/Qwen/GLM/DeepSeek/Kimi 等
-        //   均会对未知参数报错，而非忽略。详见开发者文档。
+        //   • 自定义 API 暂不应添加 vendorSpecific
         apiProviders: {
             deepseek: {
                 name: 'DeepSeek（推荐：最便宜）',
@@ -206,8 +202,30 @@
                     max_tokens: 500,
                     stream: false,
                     // ⚠️ GLM 专属：禁用思考模式（否则会超时）
-                    extra_body: {
+                    vendorSpecific: {
                         thinking: { type: 'disabled' }
+                    }
+                }
+            },
+            gemini: {
+                name: 'Gemini / Google AI Studio',
+                endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+                defaultModel: 'gemini-2.5-flash',
+                models: [
+                    { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
+                    { value: 'gemini-2.5-pro', label: 'gemini-2.5-pro' },
+                ],
+                requestParams: {
+                    stream: false,
+                    vendorSpecific: {
+                        "extra_body": {    // Gemini 要求的字段名
+                            "google": {
+                                "thinking_config": {
+                                    "thinking_budget": 128,
+                                    "include_thoughts": false
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -834,40 +852,83 @@
                     messages: messages
                 };
 
-                // ✅ 合并厂商特定的请求参数（temperature、max_tokens、stream、extra_body 等）
+                // ✅ 合并厂商特定的请求参数（temperature、max_tokens、stream、vendorSpecific 等）
                 const provider = CONFIG.apiProviders[config.apiProvider];
                 let body;
 
                 if (provider?.requestParams) {
-                    // 预设厂商：使用统一配置中的参数
                     const params = { ...provider.requestParams };
 
-                    // 🆕 关键修复：模拟 OpenAI SDK 的 extra_body 处理
-                    // OpenAI Python SDK 会自动将 extra_body 的内容展开到请求体根级别
-                    // 我们需要手动实现这个行为
-                    if (params.extra_body && typeof params.extra_body === 'object') {
-                        const extraFields = params.extra_body;
-                        delete params.extra_body; // 移除包裹层
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    // 🔧 vendorSpecific 自动展开机制
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+                    //
+                    // 作用：将厂商特定参数从容器中提取，放到请求体根级别
+                    //
+                    // 示例转换：
+                    //   输入 requestParams:
+                    //   {
+                    //       temperature: 0.3,
+                    //       vendorSpecific: {
+                    //           thinking: { type: 'disabled' },
+                    //           custom_param: true
+                    //       }
+                    //   }
+                    //
+                    //   输出 HTTP 请求体:
+                    //   {
+                    //       "model": "glm-4.6",
+                    //       "messages": [...],
+                    //       "temperature": 0.3,              ← 标准参数保留
+                    //       "thinking": { "type": "disabled" },  ← 从 vendorSpecific 展开
+                    //       "custom_param": true             ← 从 vendorSpecific 展开
+                    //   }
+                    //
+                    // 为什么这样设计？
+                    //   • 避免配置文件混乱（清晰区分标准参数和特殊参数）
+                    //   • 防止参数冲突（不同厂商的特殊参数互不干扰）
+                    //
+                    // ⚠️ 注意事项：
+                    //   • vendorSpecific 中的参数会覆盖同名的外层参数
+                    //   • 仅在预设厂商配置中使用，自定义 API 不支持
+                    //   • 如果参数未生效，检查日志中的"完整请求体 JSON"
+                    //
+                    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-                        // 合并顺序：baseBody -> 标准参数(temperature等) -> extra_body内容
-                        body = { ...baseBody, ...params, ...extraFields };
+                    if (params.vendorSpecific && typeof params.vendorSpecific === 'object') {
+                        // 提取特殊参数
+                        const vendorFields = params.vendorSpecific;
 
-                        UI.log(`🔧 已展开 extra_body: ${JSON.stringify(extraFields)}`, 'info', 'debug');
+                        // 从 params 中删除容器（避免发送 vendorSpecific 字段本身）
+                        delete params.vendorSpecific;
+
+                        // 合并：基础内容 + 标准参数 + 厂商特殊参数
+                        body = {
+                            ...baseBody,      // model, messages
+                            ...params,        // temperature, stream 等
+                            ...vendorFields   // thinking, custom_param 等
+                        };
+
+                        // 🆕 更详细的调试日志
+                        UI.log(`🔧 检测到 vendorSpecific 参数`, 'info', 'debug');
+                        UI.log(`📦 容器内容: ${JSON.stringify(vendorFields)}`, 'info', 'debug');
+                        UI.log(`✅ 已自动展开到请求体根级别`, 'success', 'debug');
                     } else {
+                        // 没有特殊参数，直接合并
                         body = { ...baseBody, ...params };
                     }
                 } else {
-                    // 🆕 自定义 API：仅使用最基础参数（避免触发严格验证）
+                    // 🆕 自定义 API：使用最小化请求体（第 818 行开始的逻辑）
                     body = {
                         ...baseBody,
                         temperature: 0.3,
                         max_tokens: 500,
                         stream: false
-                        // ⚠️ 不添加 extra_body 或其他非标准字段！
-                        // 原因：多数 OpenAI 兼容 API 会对未知参数返回 400/422 错误
+                        // ⚠️ 不添加 vendorSpecific！
+                        // 原因：不知道用户的 API 支持什么参数，保守策略
                     };
 
-                    // 🆕 检测疑似推理模型，发出警告（但不阻止请求）
+                    // 🆕 检测疑似推理模型，发出警告
                     const modelName = body.model.toLowerCase();
                     if (modelName.includes('reason') || modelName.includes('think') ||
                         modelName.includes('r1') || modelName.includes('o1')) {
