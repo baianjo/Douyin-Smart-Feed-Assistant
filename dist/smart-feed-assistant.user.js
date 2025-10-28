@@ -18,10 +18,11 @@
 // @grant        GM_addStyle
 // @grant        unsafeWindow
 // @run-at       document-end
-// @downloadURL  https://raw.githubusercontent.com/YOUR_USERNAME/smart-feed-assistant/main/script.js
-// @updateURL    https://raw.githubusercontent.com/YOUR_USERNAME/smart-feed-assistant/main/script.js
+// @downloadURL  https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/main/dist/smart-feed-assistant.user.js
+// @updateURL    https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/main/dist/smart-feed-assistant.user.js
+// @homepageURL  https://github.com/baianjo/Douyin-Smart-Feed-Assistant
 // @supportURL   mailto:1987892914@qq.com
-// @homepageURL  https://github.com/YOUR_USERNAME/smart-feed-assistant
+// @license      MIT
 // ==/UserScript==
 
 /*
@@ -630,32 +631,32 @@
             // 🆕 增加初始等待，确保 DOM 稳定
             await new Promise(r => setTimeout(r, 500));
 
-            // 🆕 智能重试机制（最多 3 次）
+            // 🆕 智能重试机制（最多 4 次）
             let feedItem = null;
-            for (let attempt = 0; attempt < 3; attempt++) {
-                feedItem = VideoExtractor.getCurrentFeedItem();
+            const maxAttempts = 7; // ← 可配置重试次数
+            const retryDelayMs = 250; // ← 可配置重试间隔（毫秒）
 
+            for (let attempt = 0; attempt < maxAttempts; attempt++) {
+                feedItem = VideoExtractor.getCurrentFeedItem();
                 if (feedItem) {
                     // 额外验证：确保元素在视口内
                     const rect = feedItem.getBoundingClientRect();
                     const isInView = rect.top < window.innerHeight && rect.bottom > 0;
-
                     if (isInView) {
                         if (attempt > 0) {
                             UI.log(`✅ 重试成功（第 ${attempt + 1} 次）`, 'success');
                         }
                         break; // 成功找到，退出循环
                     } else {
-                        UI.log(`⚠️ 找到元素但不在视口 (y: ${rect.top.toFixed(0)})，等待 300ms 后重试`, 'warning');
+                        UI.log(`⚠️ 找到元素但不在视口 (y: ${rect.top.toFixed(0)})，等待 ${retryDelayMs}ms 后重试`, 'warning');
                         feedItem = null;
                     }
                 } else {
-                    UI.log(`⚠️ 未找到 feed-item（尝试 ${attempt + 1}/3），等待 300ms 后重试`, 'warning');
+                    UI.log(`⚠️ 未找到 feed-item（尝试 ${attempt + 1}/${maxAttempts}），等待 ${retryDelayMs}ms 后重试`, 'warning');
                 }
-
-                // 等待后重试
-                if (attempt < 2) {
-                    await new Promise(r => setTimeout(r, 300));
+                // 等待后重试（最后一次不等）
+                if (attempt < maxAttempts - 1) {
+                    await new Promise(r => setTimeout(r, retryDelayMs));
                 }
             }
 
@@ -1040,7 +1041,7 @@
 
         // 单次判定模式（推荐）
         judgeSingle: async (dossier, config) => {
-            const prompt = `你是一个内容分类助手。现在给出三种规则：
+            const prompt = `你是一个内容分类助手。现在给出三种规则：「
 【点赞规则】
 ${config.promptLike}
 
@@ -1049,10 +1050,11 @@ ${config.promptNeutral}
 
 【不感兴趣规则】
 ${config.promptDislike}
-
-请根据以上规则判断下述视频内容。
+」
+请根据以上规则判断下述视频内容：「
 【视频内容】
 ${dossier}
+」
 **重要提示**：标签可能包含干扰或对不上该视频标题的信息。
 请直接回答以下JSON格式，不要有任何其他内容：
 {"action": "like/neutral/dislike", "reason": "简短理由"}`;
@@ -1695,11 +1697,11 @@ ${dossier}
                             1️⃣ 下拉选择一个提供商（如 DeepSeek）<br>
                             2️⃣ 去对应官网注册并获取 API Key（像密码一样的长串字符）<br>
                             3️⃣ 复制粘贴到下方"API Key"输入框<br>
-                            4️⃣ 选择一个推荐模型（代码已帮你筛选，不会出现超时的模型）<br>
+                            4️⃣ 选择一个推荐模型<br>
                             5️⃣ 点击"测试连接"确认可用<br><br>
 
                             <strong style="color: #dc2626;">⚠️ 重要提示</strong><br>
-                            • <strong>流式输出和思考模式已自动禁用</strong>（代码已处理，你无需设置）<br>
+                            • <strong>流式输出和思考模式已自动禁用</strong><br>
                             • <strong>API Key 是私密信息</strong>，切勿分享给他人，否则会被盗刷产生费用<br>
                             • 本工具仅将 Key 保存在你的浏览器本地，不会上传到任何服务器<br><br>
 
@@ -1939,7 +1941,7 @@ ${dossier}
                                 <p><strong>本工具可能因抖音更新而失效！</strong></p>
                                 <p>遇到问题请及时反馈，帮助我们改进：</p>
                                 <p>• 📧 邮件反馈：<a href="mailto:1987892914@qq.com" class="smart-feed-link">1987892914@qq.com</a></p>
-                                <p>• 🌟 GitHub项目：<a href="https://github.com/YOUR_USERNAME/smart-feed-assistant" target="_blank" class="smart-feed-link">点击访问</a></p>
+                                <p>• 🌟 GitHub项目：<a href="https://github.com/baianjo/Douyin-Smart-Feed-Assistant" target="_blank" class="smart-feed-link">点击访问</a></p>
                                 <p>• 如果觉得有用，请给项目点个⭐Star支持一下！</p>
                                 <p style="margin-top: 10px; font-size: 12px; color: #78716c;">反馈时请附上错误截图和日志，方便快速定位问题</p>
                             </div>
