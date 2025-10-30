@@ -125,7 +125,7 @@
 
 安装好扩展管理器后，**点击以下任一链接安装脚本**：
 ### **[👉 点击安装（GreasyFork）](https://greasyfork.org/zh-CN/scripts/553873)**
-### **[👉 点击安装（GitHub）](https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/dist/smart-feed-assistant.user.js)**
+### **[👉 点击安装（GitHub）](https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/main/dist/smart-feed-assistant.user.js)**
 
 > 💡 **提示**：点击上方链接后，扩展管理器会自动弹出安装确认页面
 
@@ -135,7 +135,7 @@
 **手动安装步骤**：
 1. 复制以下地址：
 ```
-https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/dist/smart-feed-assistant.user.js
+[https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/dist/smart-feed-assistant.user.js](https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/main/dist/smart-feed-assistant.user.js)
 ```
 2. 打开 Tampermonkey/Violentmonkey 扩展面板
 3. 点击「添加新脚本」或「+」号
