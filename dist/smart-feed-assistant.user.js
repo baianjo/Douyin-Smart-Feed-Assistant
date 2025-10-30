@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.0.0
+// @version      2.0.1
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
