@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.0.1
+// @version      2.0.2
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
@@ -1636,6 +1636,47 @@ ${dossier}
                     will-change: transform;
                     transform: translateZ(0);
                 }
+
+                /* 可折叠帮助框 */
+                .collapsible-help-box .help-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    cursor: pointer;
+                    user-select: none;
+                }
+
+                .collapsible-help-box .help-toggle-btn {
+                    padding: 4px 12px;
+                    border: none;
+                    background: rgba(139, 162, 251, 0.2);
+                    color: rgba(139, 162, 251, 1);
+                    border-radius: 6px;
+                    cursor: pointer;
+                    font-size: 12px;
+                    font-weight: 600;
+                    transition: all 0.2s;
+                }
+
+                .collapsible-help-box .help-toggle-btn:hover {
+                    background: rgba(139, 162, 251, 0.3);
+                    transform: translateY(-1px);
+                }
+
+                .collapsible-help-box .help-content {
+                    display: none;
+                    margin-top: 12px;
+                    padding-top: 12px;
+                }
+
+                .collapsible-help-box.expanded .help-content {
+                    display: block;
+                }
+
+                .collapsible-help-box.expanded .help-toggle-btn {
+                    background: rgba(239, 68, 68, 0.2);
+                    color: rgba(239, 68, 68, 1);
+                }
             `);
 
 
@@ -1749,28 +1790,33 @@ ${dossier}
                             </select>
                         </div>
 
-                        <!-- 🆕 重要提示框 -->
-                        <div class="smart-feed-info-box" style="margin-top: 10px; background: rgba(254, 243, 199, 0.9);">
-                            <strong>💡 新手必读</strong><br>
-                            <strong>什么是 API？</strong> 理解为"调用 AI 大模型的通行证"即可，无需了解技术细节。<br><br>
+                        <!-- 🆕 重要提示框（可折叠） -->
+                        <div class="smart-feed-info-box collapsible-help-box" style="margin-top: 10px; background: rgba(254, 243, 199, 0.9);">
+                            <div class="help-header">
+                                <strong>💡 新手必读</strong>
+                                <button class="help-toggle-btn">展开 ▼</button>
+                            </div>
+                            <div class="help-content">
+                                <strong>什么是 API？</strong> 理解为"调用 AI 大模型的通行证"即可，无需了解技术细节。<br><br>
 
-                            <strong>如何使用？</strong><br>
-                            1️⃣ 下拉选择一个提供商（如 DeepSeek）<br>
-                            2️⃣ 去对应官网注册并获取 API Key（像密码一样的长串字符）<br>
-                            3️⃣ 复制粘贴到下方"API Key"输入框<br>
-                            4️⃣ 选择一个推荐模型<br>
-                            5️⃣ 点击"测试连接"确认可用<br><br>
+                                <strong>如何使用？</strong><br>
+                                1️⃣ 下拉选择一个提供商（如 DeepSeek）<br>
+                                2️⃣ 去对应官网注册并获取 API Key（像密码一样的长串字符）<br>
+                                3️⃣ 复制粘贴到下方"API Key"输入框<br>
+                                4️⃣ 选择一个推荐模型<br>
+                                5️⃣ 点击"测试连接"确认可用<br><br>
 
-                            <strong style="color: #dc2626;">⚠️ 重要提示</strong><br>
-                            • <strong>流式输出和思考模式已自动禁用</strong><br>
-                            • <strong>API Key 是私密信息</strong>，切勿分享给他人，否则会被盗刷产生费用<br>
-                            • 本工具仅将 Key 保存在你的浏览器本地，不会上传到任何服务器<br><br>
+                                <strong style="color: #dc2626;">⚠️ 重要提示</strong><br>
+                                • <strong>流式输出和思考模式已自动禁用</strong><br>
+                                • <strong>API Key 是私密信息</strong>，切勿分享给他人，否则会被盗刷产生费用<br>
+                                • 本工具仅将 Key 保存在你的浏览器本地，不会上传到任何服务器<br><br>
 
-                            <strong>🌐 关于"自定义 API"选项</strong><br>
-                            如果你使用第三方转发服务或其他兼容 OpenAI 格式的 API：<br>
-                            • 在"API 地址"填写基础地址即可，如 <code>https://api.example.com/v1</code><br>
-                            • 脚本会自动补全 <code>/chat/completions</code>，你无需手动拼接完整路径<br>
-                            • 支持的填写格式：<code>https://xxx.com</code> 或 <code>https://xxx.com/v1</code> 或完整路径
+                                <strong>🌐 关于"自定义 API"选项</strong><br>
+                                如果你使用第三方转发服务或其他兼容 OpenAI 格式的 API：<br>
+                                • 在"API 地址"填写基础地址即可，如 <code>https://api.example.com/v1</code><br>
+                                • 脚本会自动补全 <code>/chat/completions</code>，你无需手动拼接完整路径<br>
+                                • 支持的填写格式：<code>https://xxx.com</code> 或 <code>https://xxx.com/v1</code> 或完整路径
+                            </div>
                         </div>
 
                         <div class="smart-feed-section">
@@ -2017,10 +2063,6 @@ ${dossier}
                                 <p>• 请遵守相关法律法规，理性使用AI技术</p>
                                 <p>• API Key仅存储在本地浏览器，不会上传到任何服务器</p>
                             </div>
-                        </div>
-
-                        <div style="text-align: center; margin-top: 20px; color: #94a3b8; font-size: 12px;">
-                            版本 2.0.0 | 2025-10
                         </div>
                     </div>
                 </div>
@@ -2499,6 +2541,18 @@ ${dossier}
                 document.getElementById('logContainer').innerHTML = '';
                 UI.log('日志已清空', 'info');
             });
+
+            // 🆕 折叠帮助框功能
+            const helpBox = document.querySelector('.collapsible-help-box');
+            if (helpBox) {
+                const header = helpBox.querySelector('.help-header');
+                const btn = helpBox.querySelector('.help-toggle-btn');
+
+                header.addEventListener('click', () => {
+                    helpBox.classList.toggle('expanded');
+                    btn.textContent = helpBox.classList.contains('expanded') ? '收起 ▲' : '展开 ▼';
+                });
+            }
         },
 
         log: (message, type = 'info', level = 'normal') => {
