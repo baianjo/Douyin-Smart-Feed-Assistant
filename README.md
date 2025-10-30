@@ -2,7 +2,6 @@
 
 <div align="center">
 
-![版本](https://img.shields.io/badge/版本-2.0.0-blue.svg)
 ![许可证](https://img.shields.io/badge/许可证-MIT-green.svg)
 ![平台](https://img.shields.io/badge/平台-Tampermonkey%20%7C%20Violentmonkey-orange.svg)
 
