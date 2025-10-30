@@ -108,6 +108,8 @@
 - Firefox：[Firefox 附加组件](https://addons.mozilla.org/zh-CN/firefox/addon/tampermonkey/)
 - Safari：[App Store](https://apps.apple.com/app/tampermonkey/id1482490089)
 
+如果初次使用油猴，可能要求进行一系列操作才能完成，比如[启用 “允许用户脚本”切换开关 或 开发者模式](https://www.tampermonkey.net/faq.php#Q209)。油猴（或暴力猴）是一个很强大的通用脚本承载器，网上有诸多详细教程，请移步搜索。
+
 #### 方案二：Violentmonkey（暴力猴）
 
 **支持浏览器**：Chrome、Edge、Firefox
