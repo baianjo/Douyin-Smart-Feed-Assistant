@@ -135,11 +135,11 @@
 **手动安装步骤**：
 1. 复制以下地址：
 ```
-[https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/dist/smart-feed-assistant.user.js](https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/main/dist/smart-feed-assistant.user.js)
+https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/main/dist/smart-feed-assistant.user.js
 ```
 2. 打开 Tampermonkey/Violentmonkey 扩展面板
-3. 点击「添加新脚本」或「+」号
-4. 在「实用工具」标签页中找到「从 URL 安装」
+3. 点击设置，「添加新脚本」或「+」号
+4. 在「实用工具」标签页中找到「从 URL 安装」或「通过地址安装」
 5. 粘贴上方地址并确认安装
 
 </details>
