@@ -560,12 +560,6 @@ selectors: {
 4. **推送到分支** - `git push origin feature/AmazingFeature`
 5. **提交 Pull Request** - 在 GitHub 上创建 PR
 
-### 贡献者将获得
-
-- 在 README 的致谢名单中留名
-- 成为项目 Contributor（显示在 GitHub 项目页面）
-- 如果贡献突出，可获得项目 Collaborator 权限
-
 ### 提交规范
 
 - **代码风格**：遵循原有代码格式
@@ -574,12 +568,12 @@ selectors: {
 
 ### 贡献方向建议
 
-- 🐛 修复已知 bug
-- ✨ 添加新的 AI 模型支持
-- 📝 改进文档和教程
-- 🎨 优化界面设计
-- 🔧 更新 DOM 选择器（当抖音改版时）
-- 🌐 添加多语言支持
+- 修复已知 bug
+- 添加新的 AI 模型支持
+- 改进文档和教程
+- 优化界面设计
+- 更新 DOM 选择器（当抖音改版时）
+- 将单文件拆分为工程（下一步）
 
 **即使你不会编程，也可以通过以下方式贡献：**
 - 提交 bug 报告和功能建议
@@ -715,13 +709,7 @@ SOFTWARE.
 
 - 感谢所有提供反馈和建议的用户
 - 感谢开源社区的技术支持
-- 特别感谢 DeepSeek、Kimi、Qwen、GLM 等 AI 服务提供商
-
-**特别致谢以下贡献者**（按首次贡献时间排序）：
-
-> 暂无贡献者，期待你成为第一位！
-
-**想要在这里留名？欢迎提交 Pull Request！**
+- 特别感谢 DeepSeek、Kimi、Qwen、GLM、Gemini、Claude 等 AI 服务提供商
 
 ---
 
