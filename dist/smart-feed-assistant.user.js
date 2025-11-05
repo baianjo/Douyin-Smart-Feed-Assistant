@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.0.9
+// @version      2.1.0
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
@@ -80,7 +80,7 @@
             // 行为控制
             minDelay: 1,
             maxDelay: 3,
-            runDuration: 20,
+            runDuration: 15,
 
             // 高级选项
             skipProbability: 8,
@@ -1795,31 +1795,112 @@ ${dossier}
                         </div>
 
                         <!-- 🆕 重要提示框（可折叠） -->
-                        <div class="smart-feed-info-box collapsible-help-box" style="margin-top: 10px; background: rgba(254, 243, 199, 0.9);">
+                        <div class="smart-feed-info-box collapsible-help-box" style="margin-top: 10px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b;">
                             <div class="help-header">
-                                <strong>💡 新手必读</strong>
+                                <strong>🎯 新手 5 分钟上手指南</strong>
                                 <button class="help-toggle-btn">展开 ▼</button>
                             </div>
                             <div class="help-content">
-                                <strong>什么是 API？</strong> 理解为"调用 AI 大模型的通行证"即可，无需了解技术细节。<br><br>
-
-                                <strong>如何使用？</strong><br>
-                                1️⃣ 下拉选择一个提供商（如 DeepSeek）<br>
-                                2️⃣ 去对应官网注册并获取 API Key（像密码一样的长串字符）<br>
-                                3️⃣ 复制粘贴到下方"API Key"输入框<br>
-                                4️⃣ 选择一个推荐模型<br>
-                                5️⃣ 点击"测试连接"确认可用<br><br>
-
-                                <strong style="color: #dc2626;">⚠️ 重要提示</strong><br>
-                                • <strong>流式输出和思考模式已自动禁用</strong><br>
-                                • <strong>API Key 是私密信息</strong>，切勿分享给他人，否则会被盗刷产生费用<br>
-                                • 本工具仅将 Key 保存在你的浏览器本地，不会上传到任何服务器<br><br>
-
-                                <strong>🌐 关于"自定义 API"选项</strong><br>
-                                如果你使用第三方转发服务或其他兼容 OpenAI 格式的 API：<br>
-                                • 在"API 地址"填写基础地址即可，如 <code>https://api.example.com/v1</code><br>
-                                • 脚本会自动补全 <code>/chat/completions</code>，你无需手动拼接完整路径<br>
-                                • 支持的填写格式：<code>https://xxx.com</code> 或 <code>https://xxx.com/v1</code> 或完整路径
+                                <!-- 第一部分：准备工作 -->
+                                <div style="background: rgba(220, 38, 38, 0.1); border-left: 3px solid #dc2626; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                                    <strong style="color: #dc2626;">📋 开始前的准备（必做！）</strong><br>
+                                    <div style="margin-top: 8px; line-height: 1.8;">
+                                        ☑️ 打开抖音网页版：<a href="https://www.douyin.com/" target="_blank" style="color: #2563eb;">www.douyin.com</a><br>
+                                        ☑️ 点击左侧菜单"<strong>推荐</strong>"（不是"精选"）<br>
+                                        ☑️ 关闭视频右下角的"<strong>自动连播</strong>"（必须变成灰色）<br>
+                                        ☑️ 确保浏览器没有开启无痕模式（否则配置无法保存）
+                                    </div>
+                                </div>
+                        
+                                <!-- 第二部分：配置流程 -->
+                                <strong>⚙️ 三步完成配置</strong><br>
+                                <div style="background: rgba(255,255,255,0.7); padding: 12px; border-radius: 8px; margin: 10px 0;">
+                                    <table style="width: 100%; font-size: 13px; line-height: 1.8;">
+                                        <tr>
+                                            <td style="width: 60px; vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 1</td>
+                                            <td>
+                                                <strong>获取 API Key</strong>（注册即可）<br>
+                                                <span style="color: #64748b;">
+                                                • 推荐新手选 <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: #2563eb;">DeepSeek</a><br>
+                                                • 注册后在控制台点"创建 API Key"，复制那串英文<br>
+                                                • 或选 <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color: #2563eb;">智谱GLM</a>（有长期免费模型，但其控制台稍显复杂）
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
+                                        <tr>
+                                            <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 2</td>
+                                            <td>
+                                                <strong>填写配置</strong><br>
+                                                <span style="color: #64748b;">
+                                                • 在下方"<strong>API 提供商</strong>"选你刚注册的平台<br>
+                                                • 把复制的 Key 粘贴到"<strong>API Key</strong>"输入框<br>
+                                                • 点击"<strong>🧪 测试连接</strong>"按钮（看到绿色成功提示就对了）
+                                                </span>
+                                            </td>
+                                        </tr>
+                                        <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
+                                        <tr>
+                                            <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 3</td>
+                                            <td>
+                                                <strong>设置偏好</strong><br>
+                                                <span style="color: #64748b;">
+                                                • 新手直接选"<strong>预设模板</strong>"（如"青少年内容引导"）<br>
+                                                • 或者在三个规则框里描述你想看/不想看什么<br>
+                                                • <strong style="color: #dc2626;">滚动到底部点"💾 保存当前配置"</strong>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    </table>
+                                </div>
+                        
+                                <!-- 第三部分：开始使用 -->
+                                <div style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid #10b981; padding: 12px; border-radius: 6px; margin: 15px 0;">
+                                    <strong style="color: #059669;">✅ 配置完成后</strong><br>
+                                    <div style="margin-top: 8px; line-height: 1.8;">
+                                        1️⃣ 点击面板右上角"<strong>▶ 开始</strong>"按钮<br>
+                                        2️⃣ 切换到"<strong>运行日志</strong>"标签页，看实时处理进度<br>
+                                        3️⃣ <strong style="color: #dc2626;">保持抖音标签页可见</strong><br>
+                                        4️⃣ 建议首次运行 10-15 分钟，观察效果后再调整
+                                    </div>
+                                </div>
+                        
+                                <!-- 第四部分：常见错误 -->
+                                <details style="margin-top: 15px;">
+                                    <summary style="cursor: pointer; color: #dc2626; font-weight: bold;">❌ 遇到问题？点击查看常见错误</summary>
+                                    <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
+                                        <strong>Q: 点"测试连接"失败？</strong><br>
+                                        A: ① 检查 Key 前后有没有多余空格 ② 确认选对了提供商 ③ 检查网络能否访问对应网站<br><br>
+                        
+                                        <strong>Q: 脚本一直显示"无法定位视频"？</strong><br>
+                                        A: ① 确认在"推荐"页面 ② 关闭了自动连播 ③ 刷新页面重试<br><br>
+                        
+                                        <strong>其他问题？</strong><br>
+                                        发邮件到 <a href="mailto:1987892914@qq.com" style="color: #2563eb;">1987892914@qq.com</a>，记得附上"运行日志"截图
+                                    </div>
+                                </details>
+                        
+                                <hr style="border: none; border-top: 1px dashed #cbd5e1; margin: 15px 0;">
+                        
+                                <!-- 第五部分：进阶说明（折叠） -->
+                                <details style="margin-top: 10px;">
+                                    <summary style="cursor: pointer; color: #7c3aed; font-weight: bold;">🔧 进阶：自定义 API 怎么用？</summary>
+                                    <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
+                                        如果你用的是第三方转发服务（如 OpenAI 中转）：<br><br>
+                        
+                                        1️⃣ 在"<strong>API 提供商</strong>"选"<strong>自定义 OpenAI 兼容 API</strong>"<br>
+                                        2️⃣ 填写 API 地址（只需填到域名或 /v1，脚本会自动补全）：<br>
+                                        <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">https://api.example.com/v1</code><br>
+                                        3️⃣ 手动输入模型名称（如 <code>gpt-4o-mini</code>）<br><br>
+                        
+                                        <strong style="color: #dc2626;">⚠️ 自定义 API 禁止使用推理模型</strong><br>
+                                        如 <code>deepseek-reasoner</code>、<code>o1</code> 等会导致解析失败
+                                    </div>
+                                </details>
+                        
+                                <div style="margin-top: 15px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 12px; text-align: center; color: #7c3aed;">
+                                    💡 <strong>小贴士</strong>：第一次使用建议从预设模板开始，熟悉后再自定义规则
+                                </div>
                             </div>
                         </div>
 
