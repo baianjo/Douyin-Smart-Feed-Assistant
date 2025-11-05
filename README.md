@@ -733,8 +733,6 @@ SOFTWARE.
 
 <div align="center">
 
-**最后更新**：2025.9 - 2025.10  
-**维护状态**：积极维护中
 
 **Made with ❤️ by Baianjo**
 
