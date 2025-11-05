@@ -190,7 +190,8 @@
                 endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
                 defaultModel: 'glm-4.6',
                 models: [
-                    { value: 'glm-4.6', label: 'glm-4.6' }
+                    { value: 'glm-4.6', label: 'glm-4.6' },
+                    { value: 'glm-4-flash', label: 'glm-4-flash（免费）' }
                 ],
                 requestParams: {
                     temperature: 0.3,
@@ -1822,7 +1823,7 @@ ${dossier}
                                                 <strong>获取 API Key</strong>（注册即可）<br>
                                                 <span style="color: #64748b;">
                                                 • 推荐新手选 <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: #2563eb;">DeepSeek</a><br>
-                                                • 注册后在控制台点"创建 API Key"，复制那串英文<br>
+                                                • 无论何种平台，注册后在控制台点"创建 API Key"（确保有余额，1元足矣。初次注册可能会送），复制那串英文<br>
                                                 • 或选 <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color: #2563eb;">智谱GLM</a>（有长期免费模型，但其控制台稍显复杂）
                                                 </span>
                                             </td>
