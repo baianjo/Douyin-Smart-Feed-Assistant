@@ -769,12 +769,12 @@
                 case 'like':
                     UI.log('👍 执行: 点赞', 'success');
                     Utils.pressKey('z');
-                    await Utils.randomDelay(1, 1.5);
+                    await Utils.randomDelay(2, 3);
                     break;
                 case 'dislike':
                     UI.log('👎 执行: 不感兴趣', 'warning');
                     Utils.pressKey('r');
-                    await Utils.randomDelay(0.5, 1.5);
+                    await Utils.randomDelay(0.5, 1);
                     return; // 不感兴趣会自动跳转，不需要手动下滚
                 case 'neutral':
                     UI.log('➡️ 执行: 忽略', 'info');
@@ -784,7 +784,7 @@
             // 下滚到下一个视频
             UI.log('⬇️ 切换到下一个视频...', 'info');
             Utils.pressKey('ArrowDown');
-            await Utils.randomDelay(1, 2.5);
+            await Utils.randomDelay(1, 1.5);
         }
     };
 
