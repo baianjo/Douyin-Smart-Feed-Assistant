@@ -209,7 +209,7 @@
                 defaultModel: 'gemini-2.5-flash',
                 models: [
                     { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
-                    { value: 'gemini-2.5-pro', label: 'gemini-2.5-pro' },
+                    { value: 'gemini-3-flash-preview', label: 'gemini-3-flash-preview' },
                 ],
                 requestParams: {
                     stream: false,
