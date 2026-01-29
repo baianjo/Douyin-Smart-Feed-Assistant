@@ -680,6 +680,13 @@
                         feedItem = null;
                     }
                 } else {
+                                        // 新增：第一次失败时输出诊断信息
+                    if (attempt === 0) {
+                        const centerEl = document.elementFromPoint(window.innerWidth/2, window.innerHeight/2);
+                        if (centerEl) {
+                            UI.log(`📍 中心元素: <${centerEl.tagName.toLowerCase()}> class="${centerEl.className?.substring(0,60) || '(无)'}"`, 'warning', 'debug');
+                        }
+                    }
                     UI.log(`⚠️ 未找到 feed-item（尝试 ${attempt + 1}/${maxAttempts}），等待 ${retryDelayMs}ms 后重试`, 'warning');
                 }
                 // 等待后重试（最后一次不等）
