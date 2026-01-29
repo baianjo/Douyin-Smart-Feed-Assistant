@@ -659,9 +659,9 @@
             // 🆕 增加初始等待，确保 DOM 稳定
             await new Promise(r => setTimeout(r, 500));
 
-            // 🆕 智能重试机制（最多 4 次）
+            // 🆕 智能重试机制
             let feedItem = null;
-            const maxAttempts = 7; // ← 可配置重试次数
+            const maxAttempts = 15; // ← 可配置重试次数
             const retryDelayMs = 250; // ← 可配置重试间隔（毫秒）
 
             for (let attempt = 0; attempt < maxAttempts; attempt++) {
