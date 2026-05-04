@@ -77,11 +77,11 @@ const CONFIG = {
     //   - stream: false 是必填项（禁用流式输出）
     //
     // 🔧 关于 vendorSpecific（厂商特定参数）：
-    //   • 仅在预设厂商配置中使用（如 GLM 的 thinking 禁用）
+    //   • 仅在确认某厂商长期稳定支持、且确有必要时使用
     //   • ⚠️ 切勿在所有配置中统一添加！原因：
     //     - 多数 OpenAI 兼容 API 会严格验证参数
     //     - 遇到未知字段会返回 400/422 错误
-    //     - 只有明确支持的厂商才能使用特定参数
+    //     - 模型规则会随时间变化，默认策略应尽量使用 OpenAI 兼容最大公约数
     //   • 自定义 API 暂不应添加 vendorSpecific
     apiProviders: {
         deepseek: {
@@ -136,11 +136,7 @@ const CONFIG = {
             requestParams: {
                 temperature: 0.3,
                 max_tokens: 500,
-                stream: false,
-                // ⚠️ GLM 专属：禁用思考模式（否则会超时）
-                vendorSpecific: {
-                    thinking: { type: 'disabled' }
-                }
+                stream: false
             }
         },
         gemini: {
@@ -152,17 +148,9 @@ const CONFIG = {
                 { value: 'gemini-3-flash-preview', label: 'gemini-3-flash-preview' },
             ],
             requestParams: {
-                stream: false,
-                vendorSpecific: {
-                    "extra_body": {    // Gemini 要求的字段名
-                        "google": {
-                            "thinking_config": {
-                                "thinking_budget": 128,
-                                "include_thoughts": false
-                            }
-                        }
-                    }
-                }
+                temperature: 0.3,
+                max_tokens: 500,
+                stream: false
             }
         }
     },

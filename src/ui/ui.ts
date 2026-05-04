@@ -539,7 +539,10 @@ const UI = {
         const config = loadConfig();
 
         // 🆕 详细调试日志
-        console.log('[智能助手] 🔧 初始化 - 完整配置:', config);
+        console.log('[智能助手] 🔧 初始化 - 配置概览:', {
+            ...config,
+            apiKey: config.apiKey ? '[已隐藏]' : ''
+        });
         console.log('[智能助手] 📍 panelPosition 原始值:', config.panelPosition);
         console.log('[智能助手] 📍 panelPosition 类型检查:', {
             是对象: typeof config.panelPosition === 'object',
@@ -745,8 +748,8 @@ const UI = {
                                     <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">https://api.example.com/v1</code><br>
                                     3️⃣ 手动输入模型名称（如 <code>gpt-4o-mini</code>）<br><br>
                     
-                                    <strong style="color: #dc2626;">⚠️ 自定义 API 禁止使用推理模型</strong><br>
-                                    如 <code>deepseek-reasoner</code>、<code>o1</code> 等会导致解析失败
+                                    <strong style="color: #92400e;">⚠️ 推理/思考模型兼容说明</strong><br>
+                                    脚本不会按具体模型名猜测厂商思考参数；会用短输出提示和最终回答解析来兼容大多数模型。
                                 </div>
                             </details>
                     
@@ -793,14 +796,12 @@ const UI = {
                             <strong>✅ 脚本会智能补全缺失部分，你填哪种都行</strong>
                         </small>
 
-                        <!-- 🆕 新增警告框 -->
-                        <div style="background: rgba(254, 226, 226, 0.9); border-left: 4px solid #dc2626; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #991b1b;">
-                            <strong>⚠️ 重要限制</strong><br>
-                            自定义API时，<strong>请勿使用</strong>带推理/思考模式的模型，例如：<br>
-                            • ❌ <code>deepseek-reasoner</code>（DeepSeek R1）<br>
-                            • ❌ 其他带 <code>reasoning</code> 功能的模型<br><br>
-                            <strong>原因</strong>：这类模型会返回推理过程而非直接内容，导致脚本无法正确解析。<br>
-                            <strong>建议</strong>：使用标准对话模型，如 <code>deepseek-chat</code>、<code>gpt-4o-mini</code> 等。
+                        <!-- 🆕 思考模型兼容提示 -->
+                        <div style="background: rgba(254, 243, 199, 0.9); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #92400e;">
+                            <strong>⚠️ 推理/思考模型说明</strong><br>
+                            自定义 API 可以填写带推理/思考能力的模型。<br>
+                            脚本会优先读取最终回答（<code>content</code>），并忽略 <code>reasoning_content</code> / <code>reasoning</code> 等思考过程。<br><br>
+                            <strong>注意</strong>：不同厂商的思考开关变化很快，脚本默认不追踪每个模型的专属参数；如果模型仍然思考，那就由模型自己处理，费用也按你的 API 账户结算。
                         </div>
                     </div>
 
@@ -935,8 +936,8 @@ const UI = {
                             <p><strong>Q: 价格大概多少？</strong></p>
                             <p>A: 取决于你所选择的API供应商，部分供应商完全可以做到免费，如新人注册送大量限时额度。Deepseek参考价格：1元约可以判断1000次视频。</p>
 
-                            <p><strong>Q: 为什么不能使用 deepseek 深度思考（如R1）？</strong></p>
-                            <p>A: 推理模型会返回思考过程而非直接回答（content）。关键在于：1.这样会拖慢判断速度，让抖音误以为您长时间停留在看该视频；2.是为了您的钱包着想，这样不省钱。请使用 如deepseek-chat （类似曾经的DeepSeek-V3）等的标准对话模型。</p>
+                            <p><strong>Q: 可以使用 deepseek 深度思考（如R1）吗？</strong></p>
+                            <p>A: 可以。脚本不会按具体模型名维护思考开关，只会用提示词要求少输出思考，并优先读取最终回答（content）。如果模型仍然思考，就让它思考；若接口只返回思考内容而没有最终回答，脚本会提示“模型未返回最终回答”。</p>
 
                             <p><strong>Q: 出现 400/422 错误怎么办？</strong></p>
                             <p>A: 检查 API 地址是否正确，或尝试切换到预设厂商配置。</p>
@@ -970,7 +971,7 @@ const UI = {
                             <p>• <strong>新增厂商</strong>：在 <code>apiProviders</code> 中添加一个对象，包含 name、endpoint、defaultModel、models、requestParams</p>
                             <p>• <strong>新增模型</strong>：在对应厂商的 <code>models</code> 数组中添加 <code>{ value: 'model-id', label: '显示名称' }</code></p>
                             <p>• <strong>调整请求参数</strong>：修改 <code>requestParams</code>（支持 temperature、max_tokens、stream、extra_body 等）</p>
-                            <p>• <strong>特殊参数示例</strong>：GLM 的 <code>extra_body.thinking</code> 禁用，DeepSeek 的温度调整等</p>
+                            <p>• <strong>特殊参数策略</strong>：默认只发 OpenAI 兼容的通用字段；厂商专属 thinking 参数不要作为常规适配手段</p>
                             <p>• <strong>无需分散修改</strong>：模型、端点、参数全部在一个配置对象中</p>
 
                             <p><strong>💡 使用技巧：</strong></p>

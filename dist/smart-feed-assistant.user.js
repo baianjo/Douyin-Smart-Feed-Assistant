@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.1.1
+// @version      2.1.2
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
@@ -102,11 +102,11 @@
     //   - stream: false 是必填项（禁用流式输出）
     //
     // 🔧 关于 vendorSpecific（厂商特定参数）：
-    //   • 仅在预设厂商配置中使用（如 GLM 的 thinking 禁用）
+    //   • 仅在确认某厂商长期稳定支持、且确有必要时使用
     //   • ⚠️ 切勿在所有配置中统一添加！原因：
     //     - 多数 OpenAI 兼容 API 会严格验证参数
     //     - 遇到未知字段会返回 400/422 错误
-    //     - 只有明确支持的厂商才能使用特定参数
+    //     - 模型规则会随时间变化，默认策略应尽量使用 OpenAI 兼容最大公约数
     //   • 自定义 API 暂不应添加 vendorSpecific
     apiProviders: {
       deepseek: {
@@ -164,11 +164,7 @@
         requestParams: {
           temperature: 0.3,
           max_tokens: 500,
-          stream: false,
-          // ⚠️ GLM 专属：禁用思考模式（否则会超时）
-          vendorSpecific: {
-            thinking: { type: "disabled" }
-          }
+          stream: false
         }
       },
       gemini: {
@@ -180,18 +176,9 @@
           { value: "gemini-3-flash-preview", label: "gemini-3-flash-preview" }
         ],
         requestParams: {
-          stream: false,
-          vendorSpecific: {
-            "extra_body": {
-              // Gemini 要求的字段名
-              "google": {
-                "thinking_config": {
-                  "thinking_budget": 128,
-                  "include_thoughts": false
-                }
-              }
-            }
-          }
+          temperature: 0.3,
+          max_tokens: 500,
+          stream: false
         }
       }
     },
@@ -272,6 +259,110 @@
   };
 
   // src/ai/ai-service.ts
+  var THINKING_TAG_PATTERN = /<(think|thinking)\b[^>]*>[\s\S]*?<\/\1>/gi;
+  var ORPHAN_THINKING_END_TAG_PATTERN = /<\/(?:think|thinking)>\s*/gi;
+  var normalizeContent = (rawContent) => {
+    if (typeof rawContent === "string") {
+      return rawContent;
+    }
+    if (Array.isArray(rawContent)) {
+      return rawContent.map((part) => {
+        if (typeof part === "string") {
+          return part;
+        }
+        if (!part || typeof part !== "object") {
+          return "";
+        }
+        if (typeof part.text === "string") {
+          return part.text;
+        }
+        if (typeof part.content === "string") {
+          return part.content;
+        }
+        if (part.type === "text" && typeof part.value === "string") {
+          return part.value;
+        }
+        return "";
+      }).join("");
+    }
+    if (rawContent && typeof rawContent === "object") {
+      if (typeof rawContent.text === "string") {
+        return rawContent.text;
+      }
+      if (typeof rawContent.content === "string") {
+        return rawContent.content;
+      }
+    }
+    return "";
+  };
+  var stripReasoningTags = (content) => {
+    return content.replace(THINKING_TAG_PATTERN, "").replace(ORPHAN_THINKING_END_TAG_PATTERN, "").trim();
+  };
+  var extractReasoningText = (message) => {
+    if (!message || typeof message !== "object") {
+      return "";
+    }
+    return normalizeContent(message.reasoning_content) || normalizeContent(message.reasoning) || normalizeContent(message.thinking) || normalizeContent(message.thoughts);
+  };
+  var extractFinalContent = (data) => {
+    let message = null;
+    if (data?.choices?.[0]?.message) {
+      message = data.choices[0].message;
+    } else if (data?.message) {
+      message = data.message;
+    }
+    if (!message) {
+      return {
+        content: "",
+        hasReasoning: false,
+        hasSupportedMessageShape: false
+      };
+    }
+    const content = stripReasoningTags(normalizeContent(message.content));
+    const reasoning = extractReasoningText(message);
+    return {
+      content,
+      hasReasoning: Boolean(reasoning),
+      hasSupportedMessageShape: true
+    };
+  };
+  var cloneRequestParams = (params) => JSON.parse(JSON.stringify(params || {}));
+  var getProviderRequestParams = (providerId) => {
+    const provider = CONFIG.apiProviders[providerId];
+    return cloneRequestParams(provider?.requestParams);
+  };
+  var isReasoningField = (key) => {
+    return [
+      "reasoning_content",
+      "reasoning",
+      "internal_reasoning",
+      "thinking",
+      "thought",
+      "thoughts"
+    ].includes(key.toLowerCase());
+  };
+  var redactReasoningFields = (value) => {
+    if (Array.isArray(value)) {
+      return value.map(redactReasoningFields);
+    }
+    if (!value || typeof value !== "object") {
+      return value;
+    }
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
+      if (isReasoningField(key)) {
+        const length = typeof entry === "string" ? entry.length : JSON.stringify(entry ?? "").length;
+        return [key, `[\u5DF2\u7701\u7565\u601D\u8003\u5185\u5BB9\uFF0C\u957F\u5EA6\u7EA6 ${length} \u5B57\u7B26]`];
+      }
+      return [key, redactReasoningFields(entry)];
+    }));
+  };
+  var sanitizeDebugResponse = (responseText, maxLength = 1e3) => {
+    try {
+      return JSON.stringify(redactReasoningFields(JSON.parse(responseText)), null, 2).substring(0, maxLength);
+    } catch {
+      return responseText.substring(0, maxLength);
+    }
+  };
   var AIService = {
     /*
      * 调用AI API
@@ -323,7 +414,7 @@
         const provider = CONFIG.apiProviders[config.apiProvider];
         let body;
         if (provider?.requestParams) {
-          const params = { ...provider.requestParams };
+          const params = getProviderRequestParams(config.apiProvider);
           if (params.vendorSpecific && typeof params.vendorSpecific === "object") {
             const vendorFields = params.vendorSpecific;
             delete params.vendorSpecific;
@@ -350,20 +441,14 @@
             // ⚠️ 不添加 vendorSpecific！
             // 原因：不知道用户的 API 支持什么参数，保守策略
           };
-          const modelName2 = body.model.toLowerCase();
-          if (modelName2.includes("reason") || modelName2.includes("think") || modelName2.includes("r1") || modelName2.includes("o1")) {
-            getUI().log("\u26A0\uFE0F\u26A0\uFE0F\u26A0\uFE0F \u8B66\u544A\uFF1A\u68C0\u6D4B\u5230\u7591\u4F3C\u63A8\u7406\u6A21\u578B\uFF01", "warning");
-            getUI().log(`\u{1F4DB} \u6A21\u578B\u540D\u79F0: ${body.model}`, "warning");
-            getUI().log("\u{1F4A1} \u63A8\u7406\u6A21\u578B\u53EF\u80FD\u5BFC\u81F4\u89E3\u6790\u5931\u8D25\uFF0C\u5F3A\u70C8\u5EFA\u8BAE\u5207\u6362\u5230\u6807\u51C6\u5BF9\u8BDD\u6A21\u578B", "warning");
-            getUI().log("\u2705 \u63A8\u8350\u6A21\u578B: deepseek-chat, gpt-4o-mini, claude-3.5-sonnet \u7B49", "info");
-          }
+          getUI().log("\u2139\uFE0F \u81EA\u5B9A\u4E49 API \u4E0D\u6CE8\u5165\u5382\u5546\u601D\u8003\u53C2\u6570\uFF1B\u5982\u6A21\u578B\u8FD4\u56DE\u601D\u8003\u5185\u5BB9\uFF0C\u811A\u672C\u53EA\u8BFB\u53D6\u6700\u7EC8\u56DE\u7B54", "info", "debug");
         }
         getUI().log(`\u{1F4E1} \u8BF7\u6C42\u5730\u5740: ${endpoint}`, "info", "debug");
         getUI().log(`\u{1F916} \u4F7F\u7528\u6A21\u578B: ${body.model}`, "info", "debug");
         getUI().log(`\u2699\uFE0F \u53C2\u6570: temperature=${body.temperature}, max_tokens=${body.max_tokens}, stream=${body.stream}`, "info", "debug");
         getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u{1F4E1} \u8BF7\u6C42\u8BE6\u60C5 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
         getUI().log(`\u{1F310} \u5B8C\u6574 URL: ${endpoint}`, "info", "debug");
-        getUI().log(`\u{1F511} Authorization: Bearer ${config.apiKey.substring(0, 15)}...`, "info", "debug");
+        getUI().log("\u{1F511} Authorization: Bearer [\u5DF2\u9690\u85CF]", "info", "debug");
         getUI().log(`\u{1F4E6} \u8BF7\u6C42\u4F53\u5173\u952E\u5B57\u6BB5:`, "info", "debug");
         getUI().log(`  \u2022 model: ${body.model}`, "info", "debug");
         getUI().log(`  \u2022 temperature: ${body.temperature}`, "info", "debug");
@@ -392,63 +477,39 @@
             getUI().log("\u2705 \u6536\u5230\u54CD\u5E94", "success");
             getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u{1F4E5} \u54CD\u5E94\u8BE6\u60C5 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
             getUI().log(`\u{1F4CA} \u72B6\u6001\u7801: ${response.status} ${response.statusText}`, "info", "debug");
-            getUI().log(`\u{1F4C4} \u54CD\u5E94\u4F53\u524D 1000 \u5B57\u7B26:`, "info", "debug");
-            getUI().log(response.responseText.substring(0, 1e3), "info", "debug");
+            getUI().log(`\u{1F4C4} \u54CD\u5E94\u4F53\u524D 1000 \u5B57\u7B26\uFF08\u601D\u8003\u5185\u5BB9\u5DF2\u7701\u7565\uFF09:`, "info", "debug");
+            getUI().log(sanitizeDebugResponse(response.responseText, 1e3), "info", "debug");
             getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
             try {
               if (response.status !== 200) {
                 getUI().log(`\u274C HTTP ${response.status}: ${response.statusText}`, "error");
-                reject(new Error(`HTTP ${response.status}: ${response.responseText.substring(0, 200)}`));
+                reject(new Error(`HTTP ${response.status}: ${sanitizeDebugResponse(response.responseText, 200)}`));
                 return;
               }
               const data = JSON.parse(response.responseText);
-              let content = "";
-              if (data.choices && data.choices[0] && data.choices[0].message) {
-                const msg = data.choices[0].message;
-                content = msg.content || "";
-                if (!content && msg.reasoning_content) {
-                  getUI().log("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501", "error");
-                  getUI().log("\u274C \u68C0\u6D4B\u5230\u63A8\u7406\u6A21\u578B\u7684\u54CD\u5E94\u683C\u5F0F\uFF01", "error");
-                  getUI().log("", "error");
-                  getUI().log("\u{1F4CB} \u8BE6\u7EC6\u4FE1\u606F\uFF1A", "error");
-                  getUI().log(`  \u2022 API \u8FD4\u56DE\u4E86 reasoning_content \u800C\u975E content`, "error");
-                  getUI().log(`  \u2022 \u8FD9\u8868\u660E\u4F60\u4F7F\u7528\u4E86\u5E26\u63A8\u7406\u529F\u80FD\u7684\u6A21\u578B`, "error");
-                  getUI().log(`  \u2022 \u5F53\u524D\u6A21\u578B: ${body.model}`, "error");
-                  getUI().log("", "error");
-                  getUI().log("\u2705 \u89E3\u51B3\u65B9\u6848\uFF1A", "info");
-                  getUI().log("  1. \u5982\u4F7F\u7528\u81EA\u5B9A\u4E49API\uFF0C\u8BF7\u5207\u6362\u5230\u6807\u51C6\u5BF9\u8BDD\u6A21\u578B", "info");
-                  getUI().log("     \u63A8\u8350: deepseek-chat, gpt-4o-mini, claude-3.5-sonnet", "info");
-                  getUI().log('  2. \u6216\u5728"\u57FA\u7840\u8BBE\u7F6E"\u4E2D\u9009\u62E9\u9884\u8BBE\u5382\u5546\uFF08\u5DF2\u4F18\u5316\uFF09', "info");
-                  getUI().log("", "error");
-                  getUI().log("\u{1F4A1} \u4E3A\u4EC0\u4E48\u4F1A\u8FD9\u6837\uFF1F", "info");
-                  getUI().log("  \u63A8\u7406\u6A21\u578B\uFF08\u5982 deepseek-reasoner\uFF09\u4F1A\u5148\u601D\u8003\u518D\u56DE\u7B54\uFF0C", "info");
-                  getUI().log("  \u5176\u601D\u8003\u8FC7\u7A0B\u5B58\u50A8\u5728 reasoning_content \u4E2D\uFF0C", "info");
-                  getUI().log("  \u800C\u672C\u811A\u672C\u9700\u8981\u76F4\u63A5\u7684\u56DE\u7B54\uFF08\u5B58\u50A8\u5728 content \u4E2D\uFF09\u3002", "info");
-                  getUI().log("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501", "error");
-                  throw new Error(
-                    "\u63A8\u7406\u6A21\u578B\u54CD\u5E94\u683C\u5F0F\u4E0D\u517C\u5BB9\n\n\u8BF7\u5207\u6362\u5230\u6807\u51C6\u5BF9\u8BDD\u6A21\u578B\uFF0C\u6216\u4F7F\u7528\u9884\u8BBE\u5382\u5546\u914D\u7F6E\u3002\n\u8BE6\u7EC6\u4FE1\u606F\u8BF7\u67E5\u770B\u8FD0\u884C\u65E5\u5FD7\u3002"
-                  );
-                }
-              } else if (data.message && data.message.content) {
-                content = data.message.content;
-              } else {
+              const extraction = extractFinalContent(data);
+              if (!extraction.hasSupportedMessageShape) {
                 getUI().log(`\u26A0\uFE0F \u672A\u77E5\u54CD\u5E94\u683C\u5F0F: ${JSON.stringify(data).substring(0, 300)}`, "error");
                 throw new Error("API \u8FD4\u56DE\u4E86\u4E0D\u652F\u6301\u7684\u683C\u5F0F\uFF0C\u8BF7\u68C0\u67E5\u6A21\u578B\u662F\u5426\u6B63\u786E");
               }
+              const content = extraction.content;
+              if (extraction.hasReasoning) {
+                getUI().log("\u{1F9E0} \u68C0\u6D4B\u5230\u6A21\u578B\u8FD4\u56DE\u601D\u8003\u5185\u5BB9\uFF0C\u5DF2\u5FFD\u7565\uFF0C\u4EC5\u4F7F\u7528\u6700\u7EC8\u56DE\u7B54", "info", "debug");
+              }
               if (!content) {
-                const rawSnippet = response.responseText.substring(0, 500);
-                let errorMsg = "API \u8FD4\u56DE\u7A7A\u5185\u5BB9";
-                if (rawSnippet.includes("reasoning") || rawSnippet.includes("thinking")) {
-                  errorMsg += "\n\n\u53EF\u80FD\u4F7F\u7528\u4E86\u63A8\u7406\u6A21\u578B\uFF0C\u8BF7\u5207\u6362\u5230\u6807\u51C6\u5BF9\u8BDD\u6A21\u578B";
+                if (extraction.hasReasoning) {
+                  throw new Error(
+                    "\u6A21\u578B\u672A\u8FD4\u56DE\u6700\u7EC8\u56DE\u7B54\n\nAPI \u53EA\u8FD4\u56DE\u4E86\u601D\u8003\u5185\u5BB9\uFF0C\u811A\u672C\u4E0D\u4F1A\u628A\u601D\u8003\u8FC7\u7A0B\u5F53\u4F5C\u5224\u5B9A\u7ED3\u679C\u3002\n\u8BF7\u964D\u4F4E/\u5173\u95ED\u601D\u8003\u6A21\u5F0F\uFF0C\u6216\u5207\u6362\u5230\u4F1A\u8FD4\u56DE\u6700\u7EC8 content \u7684\u6A21\u578B\u3002"
+                  );
                 }
-                throw new Error(errorMsg + "\n\n\u539F\u59CB\u54CD\u5E94\u7247\u6BB5:\n" + rawSnippet);
+                throw new Error("API \u8FD4\u56DE\u7A7A\u5185\u5BB9\n\n\u539F\u59CB\u54CD\u5E94\u7247\u6BB5:\n" + sanitizeDebugResponse(response.responseText, 500));
               }
               getUI().log("\u2705 AI \u54CD\u5E94\u6210\u529F", "success");
               resolve(content);
             } catch (e) {
               getUI().log(`\u{1F4A5} \u89E3\u6790\u5931\u8D25: ${e.message}`, "error");
               reject(new Error(`${e.message}
-\u539F\u59CB\u54CD\u5E94: ${response.responseText.substring(0, 500)}`));
+\u539F\u59CB\u54CD\u5E94: ${sanitizeDebugResponse(response.responseText, 500)}`));
             }
           },
           onerror: (error) => {
@@ -472,12 +533,12 @@
       getUI().log("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550", "info");
       getUI().log(`\u{1F4CC} \u914D\u7F6E\u5FEB\u7167:`, "info", "debug");
       getUI().log(`  \u2022 API \u63D0\u4F9B\u5546: ${config.apiProvider}`, "info", "debug");
-      getUI().log(`  \u2022 API Key \u524D\u7F00: ${config.apiKey.substring(0, 12)}...`, "info", "debug");
+      getUI().log(`  \u2022 API Key: ${config.apiKey ? "\u5DF2\u586B\u5199" : "\u672A\u586B\u5199"}`, "info", "debug");
       getUI().log(`  \u2022 \u81EA\u5B9A\u4E49\u7AEF\u70B9: ${config.customEndpoint || "(\u7A7A - \u4F7F\u7528\u9884\u8BBE)"}`, "info");
       getUI().log(`  \u2022 \u81EA\u5B9A\u4E49\u6A21\u578B: ${config.customModel || "(\u7A7A - \u4F7F\u7528\u9884\u8BBE)"}`, "info");
       getUI().log("", "info");
       const testMessages = [
-        { role: "user", content: '\u8BF7\u56DE\u590D"\u8FDE\u63A5\u6210\u529F"' }
+        { role: "user", content: '\u8BF7\u53EA\u56DE\u590D"\u8FDE\u63A5\u6210\u529F"\uFF0C\u4E0D\u8981\u8F93\u51FA\u4EFB\u4F55\u601D\u8003\u8FC7\u7A0B\u3002' }
       ];
       try {
         const response = await AIService.callAPI(testMessages, config);
@@ -512,7 +573,7 @@ ${config.promptDislike}
 ${dossier}
 \u300D
 **\u91CD\u8981\u63D0\u793A**\uFF1A\u6807\u7B7E\u53EF\u80FD\u5305\u542B\u5E72\u6270\u6216\u5BF9\u4E0D\u4E0A\u8BE5\u89C6\u9891\u6807\u9898\u7684\u4FE1\u606F\u3002
-\u8BF7\u76F4\u63A5\u56DE\u7B54\u4EE5\u4E0BJSON\u683C\u5F0F\uFF0C\u4E0D\u8981\u6709\u4EFB\u4F55\u5176\u4ED6\u5185\u5BB9\uFF1A
+\u8BF7\u76F4\u63A5\u56DE\u7B54\u4EE5\u4E0BJSON\u683C\u5F0F\uFF0C\u4E0D\u8981\u6709\u4EFB\u4F55\u5176\u4ED6\u5185\u5BB9\uFF1B\u4E0D\u8981\u8F93\u51FA\u63A8\u7406/\u601D\u8003\u8FC7\u7A0B\uFF0C\u4E0D\u8981\u5305\u542B <think> \u6807\u7B7E\uFF1A
 {"action": "like/neutral/dislike", "reason": "\u7B80\u77ED\u7406\u7531"}`;
       const messages = [{ role: "user", content: prompt }];
       const response = await AIService.callAPI(messages, config);
@@ -1437,7 +1498,10 @@ ${dossier}
             }
         `);
       const config = loadConfig();
-      console.log("[\u667A\u80FD\u52A9\u624B] \u{1F527} \u521D\u59CB\u5316 - \u5B8C\u6574\u914D\u7F6E:", config);
+      console.log("[\u667A\u80FD\u52A9\u624B] \u{1F527} \u521D\u59CB\u5316 - \u914D\u7F6E\u6982\u89C8:", {
+        ...config,
+        apiKey: config.apiKey ? "[\u5DF2\u9690\u85CF]" : ""
+      });
       console.log("[\u667A\u80FD\u52A9\u624B] \u{1F4CD} panelPosition \u539F\u59CB\u503C:", config.panelPosition);
       console.log("[\u667A\u80FD\u52A9\u624B] \u{1F4CD} panelPosition \u7C7B\u578B\u68C0\u67E5:", {
         \u662F\u5BF9\u8C61: typeof config.panelPosition === "object",
@@ -1622,8 +1686,8 @@ ${dossier}
                                     <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">https://api.example.com/v1</code><br>
                                     3\uFE0F\u20E3 \u624B\u52A8\u8F93\u5165\u6A21\u578B\u540D\u79F0\uFF08\u5982 <code>gpt-4o-mini</code>\uFF09<br><br>
                     
-                                    <strong style="color: #dc2626;">\u26A0\uFE0F \u81EA\u5B9A\u4E49 API \u7981\u6B62\u4F7F\u7528\u63A8\u7406\u6A21\u578B</strong><br>
-                                    \u5982 <code>deepseek-reasoner</code>\u3001<code>o1</code> \u7B49\u4F1A\u5BFC\u81F4\u89E3\u6790\u5931\u8D25
+                                    <strong style="color: #92400e;">\u26A0\uFE0F \u63A8\u7406/\u601D\u8003\u6A21\u578B\u517C\u5BB9\u8BF4\u660E</strong><br>
+                                    \u811A\u672C\u4E0D\u4F1A\u6309\u5177\u4F53\u6A21\u578B\u540D\u731C\u6D4B\u5382\u5546\u601D\u8003\u53C2\u6570\uFF1B\u4F1A\u7528\u77ED\u8F93\u51FA\u63D0\u793A\u548C\u6700\u7EC8\u56DE\u7B54\u89E3\u6790\u6765\u517C\u5BB9\u5927\u591A\u6570\u6A21\u578B\u3002
                                 </div>
                             </details>
                     
@@ -1670,14 +1734,12 @@ ${dossier}
                             <strong>\u2705 \u811A\u672C\u4F1A\u667A\u80FD\u8865\u5168\u7F3A\u5931\u90E8\u5206\uFF0C\u4F60\u586B\u54EA\u79CD\u90FD\u884C</strong>
                         </small>
 
-                        <!-- \u{1F195} \u65B0\u589E\u8B66\u544A\u6846 -->
-                        <div style="background: rgba(254, 226, 226, 0.9); border-left: 4px solid #dc2626; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #991b1b;">
-                            <strong>\u26A0\uFE0F \u91CD\u8981\u9650\u5236</strong><br>
-                            \u81EA\u5B9A\u4E49API\u65F6\uFF0C<strong>\u8BF7\u52FF\u4F7F\u7528</strong>\u5E26\u63A8\u7406/\u601D\u8003\u6A21\u5F0F\u7684\u6A21\u578B\uFF0C\u4F8B\u5982\uFF1A<br>
-                            \u2022 \u274C <code>deepseek-reasoner</code>\uFF08DeepSeek R1\uFF09<br>
-                            \u2022 \u274C \u5176\u4ED6\u5E26 <code>reasoning</code> \u529F\u80FD\u7684\u6A21\u578B<br><br>
-                            <strong>\u539F\u56E0</strong>\uFF1A\u8FD9\u7C7B\u6A21\u578B\u4F1A\u8FD4\u56DE\u63A8\u7406\u8FC7\u7A0B\u800C\u975E\u76F4\u63A5\u5185\u5BB9\uFF0C\u5BFC\u81F4\u811A\u672C\u65E0\u6CD5\u6B63\u786E\u89E3\u6790\u3002<br>
-                            <strong>\u5EFA\u8BAE</strong>\uFF1A\u4F7F\u7528\u6807\u51C6\u5BF9\u8BDD\u6A21\u578B\uFF0C\u5982 <code>deepseek-chat</code>\u3001<code>gpt-4o-mini</code> \u7B49\u3002
+                        <!-- \u{1F195} \u601D\u8003\u6A21\u578B\u517C\u5BB9\u63D0\u793A -->
+                        <div style="background: rgba(254, 243, 199, 0.9); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #92400e;">
+                            <strong>\u26A0\uFE0F \u63A8\u7406/\u601D\u8003\u6A21\u578B\u8BF4\u660E</strong><br>
+                            \u81EA\u5B9A\u4E49 API \u53EF\u4EE5\u586B\u5199\u5E26\u63A8\u7406/\u601D\u8003\u80FD\u529B\u7684\u6A21\u578B\u3002<br>
+                            \u811A\u672C\u4F1A\u4F18\u5148\u8BFB\u53D6\u6700\u7EC8\u56DE\u7B54\uFF08<code>content</code>\uFF09\uFF0C\u5E76\u5FFD\u7565 <code>reasoning_content</code> / <code>reasoning</code> \u7B49\u601D\u8003\u8FC7\u7A0B\u3002<br><br>
+                            <strong>\u6CE8\u610F</strong>\uFF1A\u4E0D\u540C\u5382\u5546\u7684\u601D\u8003\u5F00\u5173\u53D8\u5316\u5F88\u5FEB\uFF0C\u811A\u672C\u9ED8\u8BA4\u4E0D\u8FFD\u8E2A\u6BCF\u4E2A\u6A21\u578B\u7684\u4E13\u5C5E\u53C2\u6570\uFF1B\u5982\u679C\u6A21\u578B\u4ECD\u7136\u601D\u8003\uFF0C\u90A3\u5C31\u7531\u6A21\u578B\u81EA\u5DF1\u5904\u7406\uFF0C\u8D39\u7528\u4E5F\u6309\u4F60\u7684 API \u8D26\u6237\u7ED3\u7B97\u3002
                         </div>
                     </div>
 
@@ -1812,8 +1874,8 @@ ${dossier}
                             <p><strong>Q: \u4EF7\u683C\u5927\u6982\u591A\u5C11\uFF1F</strong></p>
                             <p>A: \u53D6\u51B3\u4E8E\u4F60\u6240\u9009\u62E9\u7684API\u4F9B\u5E94\u5546\uFF0C\u90E8\u5206\u4F9B\u5E94\u5546\u5B8C\u5168\u53EF\u4EE5\u505A\u5230\u514D\u8D39\uFF0C\u5982\u65B0\u4EBA\u6CE8\u518C\u9001\u5927\u91CF\u9650\u65F6\u989D\u5EA6\u3002Deepseek\u53C2\u8003\u4EF7\u683C\uFF1A1\u5143\u7EA6\u53EF\u4EE5\u5224\u65AD1000\u6B21\u89C6\u9891\u3002</p>
 
-                            <p><strong>Q: \u4E3A\u4EC0\u4E48\u4E0D\u80FD\u4F7F\u7528 deepseek \u6DF1\u5EA6\u601D\u8003\uFF08\u5982R1\uFF09\uFF1F</strong></p>
-                            <p>A: \u63A8\u7406\u6A21\u578B\u4F1A\u8FD4\u56DE\u601D\u8003\u8FC7\u7A0B\u800C\u975E\u76F4\u63A5\u56DE\u7B54\uFF08content\uFF09\u3002\u5173\u952E\u5728\u4E8E\uFF1A1.\u8FD9\u6837\u4F1A\u62D6\u6162\u5224\u65AD\u901F\u5EA6\uFF0C\u8BA9\u6296\u97F3\u8BEF\u4EE5\u4E3A\u60A8\u957F\u65F6\u95F4\u505C\u7559\u5728\u770B\u8BE5\u89C6\u9891\uFF1B2.\u662F\u4E3A\u4E86\u60A8\u7684\u94B1\u5305\u7740\u60F3\uFF0C\u8FD9\u6837\u4E0D\u7701\u94B1\u3002\u8BF7\u4F7F\u7528 \u5982deepseek-chat \uFF08\u7C7B\u4F3C\u66FE\u7ECF\u7684DeepSeek-V3\uFF09\u7B49\u7684\u6807\u51C6\u5BF9\u8BDD\u6A21\u578B\u3002</p>
+                            <p><strong>Q: \u53EF\u4EE5\u4F7F\u7528 deepseek \u6DF1\u5EA6\u601D\u8003\uFF08\u5982R1\uFF09\u5417\uFF1F</strong></p>
+                            <p>A: \u53EF\u4EE5\u3002\u811A\u672C\u4E0D\u4F1A\u6309\u5177\u4F53\u6A21\u578B\u540D\u7EF4\u62A4\u601D\u8003\u5F00\u5173\uFF0C\u53EA\u4F1A\u7528\u63D0\u793A\u8BCD\u8981\u6C42\u5C11\u8F93\u51FA\u601D\u8003\uFF0C\u5E76\u4F18\u5148\u8BFB\u53D6\u6700\u7EC8\u56DE\u7B54\uFF08content\uFF09\u3002\u5982\u679C\u6A21\u578B\u4ECD\u7136\u601D\u8003\uFF0C\u5C31\u8BA9\u5B83\u601D\u8003\uFF1B\u82E5\u63A5\u53E3\u53EA\u8FD4\u56DE\u601D\u8003\u5185\u5BB9\u800C\u6CA1\u6709\u6700\u7EC8\u56DE\u7B54\uFF0C\u811A\u672C\u4F1A\u63D0\u793A\u201C\u6A21\u578B\u672A\u8FD4\u56DE\u6700\u7EC8\u56DE\u7B54\u201D\u3002</p>
 
                             <p><strong>Q: \u51FA\u73B0 400/422 \u9519\u8BEF\u600E\u4E48\u529E\uFF1F</strong></p>
                             <p>A: \u68C0\u67E5 API \u5730\u5740\u662F\u5426\u6B63\u786E\uFF0C\u6216\u5C1D\u8BD5\u5207\u6362\u5230\u9884\u8BBE\u5382\u5546\u914D\u7F6E\u3002</p>
@@ -1847,7 +1909,7 @@ ${dossier}
                             <p>\u2022 <strong>\u65B0\u589E\u5382\u5546</strong>\uFF1A\u5728 <code>apiProviders</code> \u4E2D\u6DFB\u52A0\u4E00\u4E2A\u5BF9\u8C61\uFF0C\u5305\u542B name\u3001endpoint\u3001defaultModel\u3001models\u3001requestParams</p>
                             <p>\u2022 <strong>\u65B0\u589E\u6A21\u578B</strong>\uFF1A\u5728\u5BF9\u5E94\u5382\u5546\u7684 <code>models</code> \u6570\u7EC4\u4E2D\u6DFB\u52A0 <code>{ value: 'model-id', label: '\u663E\u793A\u540D\u79F0' }</code></p>
                             <p>\u2022 <strong>\u8C03\u6574\u8BF7\u6C42\u53C2\u6570</strong>\uFF1A\u4FEE\u6539 <code>requestParams</code>\uFF08\u652F\u6301 temperature\u3001max_tokens\u3001stream\u3001extra_body \u7B49\uFF09</p>
-                            <p>\u2022 <strong>\u7279\u6B8A\u53C2\u6570\u793A\u4F8B</strong>\uFF1AGLM \u7684 <code>extra_body.thinking</code> \u7981\u7528\uFF0CDeepSeek \u7684\u6E29\u5EA6\u8C03\u6574\u7B49</p>
+                            <p>\u2022 <strong>\u7279\u6B8A\u53C2\u6570\u7B56\u7565</strong>\uFF1A\u9ED8\u8BA4\u53EA\u53D1 OpenAI \u517C\u5BB9\u7684\u901A\u7528\u5B57\u6BB5\uFF1B\u5382\u5546\u4E13\u5C5E thinking \u53C2\u6570\u4E0D\u8981\u4F5C\u4E3A\u5E38\u89C4\u9002\u914D\u624B\u6BB5</p>
                             <p>\u2022 <strong>\u65E0\u9700\u5206\u6563\u4FEE\u6539</strong>\uFF1A\u6A21\u578B\u3001\u7AEF\u70B9\u3001\u53C2\u6570\u5168\u90E8\u5728\u4E00\u4E2A\u914D\u7F6E\u5BF9\u8C61\u4E2D</p>
 
                             <p><strong>\u{1F4A1} \u4F7F\u7528\u6280\u5DE7\uFF1A</strong></p>

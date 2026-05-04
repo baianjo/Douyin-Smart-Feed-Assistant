@@ -1,6 +1,136 @@
 import { CONFIG } from '../config/catalog';
 import { getUI } from '../runtime/context';
 
+const THINKING_TAG_PATTERN = /<(think|thinking)\b[^>]*>[\s\S]*?<\/\1>/gi;
+const ORPHAN_THINKING_END_TAG_PATTERN = /<\/(?:think|thinking)>\s*/gi;
+
+const normalizeContent = (rawContent): string => {
+    if (typeof rawContent === 'string') {
+        return rawContent;
+    }
+
+    if (Array.isArray(rawContent)) {
+        return rawContent.map(part => {
+            if (typeof part === 'string') {
+                return part;
+            }
+            if (!part || typeof part !== 'object') {
+                return '';
+            }
+            if (typeof part.text === 'string') {
+                return part.text;
+            }
+            if (typeof part.content === 'string') {
+                return part.content;
+            }
+            if (part.type === 'text' && typeof part.value === 'string') {
+                return part.value;
+            }
+            return '';
+        }).join('');
+    }
+
+    if (rawContent && typeof rawContent === 'object') {
+        if (typeof rawContent.text === 'string') {
+            return rawContent.text;
+        }
+        if (typeof rawContent.content === 'string') {
+            return rawContent.content;
+        }
+    }
+
+    return '';
+};
+
+const stripReasoningTags = (content: string): string => {
+    return content
+        .replace(THINKING_TAG_PATTERN, '')
+        .replace(ORPHAN_THINKING_END_TAG_PATTERN, '')
+        .trim();
+};
+
+const extractReasoningText = (message): string => {
+    if (!message || typeof message !== 'object') {
+        return '';
+    }
+
+    return normalizeContent(message.reasoning_content)
+        || normalizeContent(message.reasoning)
+        || normalizeContent(message.thinking)
+        || normalizeContent(message.thoughts);
+};
+
+const extractFinalContent = (data) => {
+    let message = null;
+
+    if (data?.choices?.[0]?.message) {
+        message = data.choices[0].message;
+    } else if (data?.message) {
+        message = data.message;
+    }
+
+    if (!message) {
+        return {
+            content: '',
+            hasReasoning: false,
+            hasSupportedMessageShape: false
+        };
+    }
+
+    const content = stripReasoningTags(normalizeContent(message.content));
+    const reasoning = extractReasoningText(message);
+
+    return {
+        content,
+        hasReasoning: Boolean(reasoning),
+        hasSupportedMessageShape: true
+    };
+};
+
+const cloneRequestParams = (params) => JSON.parse(JSON.stringify(params || {}));
+
+const getProviderRequestParams = (providerId) => {
+    const provider = CONFIG.apiProviders[providerId];
+    return cloneRequestParams(provider?.requestParams);
+};
+
+const isReasoningField = (key: string): boolean => {
+    return [
+        'reasoning_content',
+        'reasoning',
+        'internal_reasoning',
+        'thinking',
+        'thought',
+        'thoughts'
+    ].includes(key.toLowerCase());
+};
+
+const redactReasoningFields = (value) => {
+    if (Array.isArray(value)) {
+        return value.map(redactReasoningFields);
+    }
+
+    if (!value || typeof value !== 'object') {
+        return value;
+    }
+
+    return Object.fromEntries(Object.entries(value).map(([key, entry]) => {
+        if (isReasoningField(key)) {
+            const length = typeof entry === 'string' ? entry.length : JSON.stringify(entry ?? '').length;
+            return [key, `[已省略思考内容，长度约 ${length} 字符]`];
+        }
+        return [key, redactReasoningFields(entry)];
+    }));
+};
+
+const sanitizeDebugResponse = (responseText: string, maxLength = 1000): string => {
+    try {
+        return JSON.stringify(redactReasoningFields(JSON.parse(responseText)), null, 2).substring(0, maxLength);
+    } catch {
+        return responseText.substring(0, maxLength);
+    }
+};
+
 const AIService = {
     /*
      * 调用AI API
@@ -74,7 +204,7 @@ const AIService = {
             let body;
 
             if (provider?.requestParams) {
-                const params = { ...provider.requestParams };
+                const params = getProviderRequestParams(config.apiProvider);
 
                 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
                 // 🔧 vendorSpecific 自动展开机制
@@ -145,15 +275,7 @@ const AIService = {
                     // 原因：不知道用户的 API 支持什么参数，保守策略
                 };
 
-                // 🆕 检测疑似推理模型，发出警告
-                const modelName = body.model.toLowerCase();
-                if (modelName.includes('reason') || modelName.includes('think') ||
-                    modelName.includes('r1') || modelName.includes('o1')) {
-                    getUI().log('⚠️⚠️⚠️ 警告：检测到疑似推理模型！', 'warning');
-                    getUI().log(`📛 模型名称: ${body.model}`, 'warning');
-                    getUI().log('💡 推理模型可能导致解析失败，强烈建议切换到标准对话模型', 'warning');
-                    getUI().log('✅ 推荐模型: deepseek-chat, gpt-4o-mini, claude-3.5-sonnet 等', 'info');
-                }
+                getUI().log('ℹ️ 自定义 API 不注入厂商思考参数；如模型返回思考内容，脚本只读取最终回答', 'info', 'debug');
             }
 
             getUI().log(`📡 请求地址: ${endpoint}`, 'info', 'debug');
@@ -161,7 +283,7 @@ const AIService = {
             getUI().log(`⚙️ 参数: temperature=${body.temperature}, max_tokens=${body.max_tokens}, stream=${body.stream}`, 'info', 'debug');
             getUI().log('──────── 📡 请求详情 ────────', 'info', 'debug');
             getUI().log(`🌐 完整 URL: ${endpoint}`, 'info', 'debug');
-            getUI().log(`🔑 Authorization: Bearer ${config.apiKey.substring(0, 15)}...`, 'info', 'debug');
+            getUI().log('🔑 Authorization: Bearer [已隐藏]', 'info', 'debug');
             getUI().log(`📦 请求体关键字段:`, 'info', 'debug');
             getUI().log(`  • model: ${body.model}`, 'info', 'debug');
             getUI().log(`  • temperature: ${body.temperature}`, 'info', 'debug');
@@ -194,69 +316,41 @@ const AIService = {
                     getUI().log('✅ 收到响应', 'success');
                     getUI().log('──────── 📥 响应详情 ────────', 'info', 'debug');
                     getUI().log(`📊 状态码: ${response.status} ${response.statusText}`, 'info', 'debug');
-                    getUI().log(`📄 响应体前 1000 字符:`, 'info', 'debug');
-                    getUI().log(response.responseText.substring(0, 1000), 'info', 'debug');
+                    getUI().log(`📄 响应体前 1000 字符（思考内容已省略）:`, 'info', 'debug');
+                    getUI().log(sanitizeDebugResponse(response.responseText, 1000), 'info', 'debug');
                     getUI().log('────────────────────────────', 'info', 'debug');
                     try {
                         if (response.status !== 200) {
                             getUI().log(`❌ HTTP ${response.status}: ${response.statusText}`, 'error');
-                            reject(new Error(`HTTP ${response.status}: ${response.responseText.substring(0, 200)}`));
+                            reject(new Error(`HTTP ${response.status}: ${sanitizeDebugResponse(response.responseText, 200)}`));
                             return;
                         }
 
                         const data = JSON.parse(response.responseText);
-                        let content = '';
+                        const extraction = extractFinalContent(data);
 
-                        // 🆕 改进：处理标准格式 + 推理模型的特殊格式
-                        if (data.choices && data.choices[0] && data.choices[0].message) {
-                            const msg = data.choices[0].message;
-                            content = msg.content || ''; // 标准字段
-
-                            // 🆕 检测推理模型的特殊响应
-                            if (!content && msg.reasoning_content) {
-                                getUI().log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'error');
-                                getUI().log('❌ 检测到推理模型的响应格式！', 'error');
-                                getUI().log('', 'error');
-                                getUI().log('📋 详细信息：', 'error');
-                                getUI().log(`  • API 返回了 reasoning_content 而非 content`, 'error');
-                                getUI().log(`  • 这表明你使用了带推理功能的模型`, 'error');
-                                getUI().log(`  • 当前模型: ${body.model}`, 'error');
-                                getUI().log('', 'error');
-                                getUI().log('✅ 解决方案：', 'info');
-                                getUI().log('  1. 如使用自定义API，请切换到标准对话模型', 'info');
-                                getUI().log('     推荐: deepseek-chat, gpt-4o-mini, claude-3.5-sonnet', 'info');
-                                getUI().log('  2. 或在"基础设置"中选择预设厂商（已优化）', 'info');
-                                getUI().log('', 'error');
-                                getUI().log('💡 为什么会这样？', 'info');
-                                getUI().log('  推理模型（如 deepseek-reasoner）会先思考再回答，', 'info');
-                                getUI().log('  其思考过程存储在 reasoning_content 中，', 'info');
-                                getUI().log('  而本脚本需要直接的回答（存储在 content 中）。', 'info');
-                                getUI().log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'error');
-
-                                throw new Error(
-                                    '推理模型响应格式不兼容\n\n' +
-                                    '请切换到标准对话模型，或使用预设厂商配置。\n' +
-                                    '详细信息请查看运行日志。'
-                                );
-                            }
-                        } else if (data.message && data.message.content) {
-                            content = data.message.content;
-                        } else {
+                        if (!extraction.hasSupportedMessageShape) {
                             getUI().log(`⚠️ 未知响应格式: ${JSON.stringify(data).substring(0, 300)}`, 'error');
                             throw new Error('API 返回了不支持的格式，请检查模型是否正确');
                         }
 
+                        const content = extraction.content;
+
+                        if (extraction.hasReasoning) {
+                            getUI().log('🧠 检测到模型返回思考内容，已忽略，仅使用最终回答', 'info', 'debug');
+                        }
+
                         if (!content) {
                             // 🆕 更详细的空内容错误提示
-                            const rawSnippet = response.responseText.substring(0, 500);
-                            let errorMsg = 'API 返回空内容';
-
-                            // 二次检测（防止某些边缘情况）
-                            if (rawSnippet.includes('reasoning') || rawSnippet.includes('thinking')) {
-                                errorMsg += '\n\n可能使用了推理模型，请切换到标准对话模型';
+                            if (extraction.hasReasoning) {
+                                throw new Error(
+                                    '模型未返回最终回答\n\n' +
+                                    'API 只返回了思考内容，脚本不会把思考过程当作判定结果。\n' +
+                                    '请降低/关闭思考模式，或切换到会返回最终 content 的模型。'
+                                );
                             }
 
-                            throw new Error(errorMsg + '\n\n原始响应片段:\n' + rawSnippet);
+                            throw new Error('API 返回空内容\n\n原始响应片段:\n' + sanitizeDebugResponse(response.responseText, 500));
                         }
 
                         getUI().log('✅ AI 响应成功', 'success');
@@ -264,7 +358,7 @@ const AIService = {
 
                     } catch (e) {
                         getUI().log(`💥 解析失败: ${e.message}`, 'error');
-                        reject(new Error(`${e.message}\n原始响应: ${response.responseText.substring(0, 500)}`));
+                        reject(new Error(`${e.message}\n原始响应: ${sanitizeDebugResponse(response.responseText, 500)}`));
                     }
                 },
                 onerror: (error) => {
@@ -291,13 +385,13 @@ const AIService = {
         // 🆕 显示当前配置快照
         getUI().log(`📌 配置快照:`, 'info', 'debug');
         getUI().log(`  • API 提供商: ${config.apiProvider}`, 'info', 'debug');
-        getUI().log(`  • API Key 前缀: ${config.apiKey.substring(0, 12)}...`, 'info', 'debug');
+        getUI().log(`  • API Key: ${config.apiKey ? '已填写' : '未填写'}`, 'info', 'debug');
         getUI().log(`  • 自定义端点: ${config.customEndpoint || '(空 - 使用预设)'}`, 'info');
         getUI().log(`  • 自定义模型: ${config.customModel || '(空 - 使用预设)'}`, 'info');
         getUI().log('', 'info');
 
         const testMessages = [
-            { role: 'user', content: '请回复"连接成功"' }
+            { role: 'user', content: '请只回复"连接成功"，不要输出任何思考过程。' }
         ];
 
         try {
@@ -334,7 +428,7 @@ ${config.promptDislike}
 ${dossier}
 」
 **重要提示**：标签可能包含干扰或对不上该视频标题的信息。
-请直接回答以下JSON格式，不要有任何其他内容：
+请直接回答以下JSON格式，不要有任何其他内容；不要输出推理/思考过程，不要包含 <think> 标签：
 {"action": "like/neutral/dislike", "reason": "简短理由"}`;
 
         const messages = [{ role: 'user', content: prompt }];
