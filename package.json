@@ -1,6 +1,6 @@
 {
   "name": "douyin-smart-feed-assistant",
-  "version": "2.1.0",
+  "version": "2.1.1",
   "private": true,
   "description": "AI-powered userscript that steers the Douyin recommendation feed with configurable preferences.",
   "type": "module",
