@@ -1,5 +1,7 @@
 # Maintainer Guide
 
+For a fuller handoff and onboarding document, start with `DEVELOPER-README.md`.
+
 ## Workspace baseline
 
 - Local working directory: `E:\ProgramProject\jsProject\douyin-smart-feed-assistant`
