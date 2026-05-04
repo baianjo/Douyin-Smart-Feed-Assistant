@@ -1,0 +1,63 @@
+{
+  "name": "douyin-smart-feed-assistant",
+  "version": "2.1.0",
+  "private": true,
+  "description": "AI-powered userscript that steers the Douyin recommendation feed with configurable preferences.",
+  "type": "module",
+  "engines": {
+    "node": "24.15.0"
+  },
+  "scripts": {
+    "build": "tsup --config tsup.config.ts && node scripts/assemble-userscript.mjs",
+    "dist:check": "node scripts/check-dist-drift.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "release:check": "npm run lint && npm run typecheck && npm run test && npm run build && npm run dist:check"
+  },
+  "userscript": {
+    "fileName": "smart-feed-assistant.user.js",
+    "name": "抖音推荐影响器 (Smart Feed Assistant)",
+    "namespace": "https://github.com/baianjo/Douyin-Smart-Feed-Assistant",
+    "description": "通过AI智能分析内容，优化你的信息流体验",
+    "author": "Baianjo",
+    "match": [
+      "*://www.douyin.com/*"
+    ],
+    "connect": [
+      "api.moonshot.cn",
+      "api.deepseek.com",
+      "dashscope.aliyuncs.com",
+      "dashscope-intl.aliyuncs.com",
+      "open.bigmodel.cn",
+      "*"
+    ],
+    "grant": [
+      "GM_setValue",
+      "GM_getValue",
+      "GM_deleteValue",
+      "GM_xmlhttpRequest",
+      "GM_addStyle",
+      "unsafeWindow"
+    ],
+    "runAt": "document-end",
+    "downloadURL": "https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/main/dist/smart-feed-assistant.user.js",
+    "updateURL": "https://raw.githubusercontent.com/baianjo/Douyin-Smart-Feed-Assistant/main/dist/smart-feed-assistant.user.js",
+    "homepageURL": "https://github.com/baianjo/Douyin-Smart-Feed-Assistant",
+    "supportURL": "mailto:1987892914@qq.com",
+    "license": "MIT"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.26.0",
+    "@types/node": "^24.9.1",
+    "eslint": "^9.26.0",
+    "globals": "^16.0.0",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.5.3",
+    "tsup": "^8.5.0",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.32.0",
+    "vitest": "^3.1.3"
+  }
+}
