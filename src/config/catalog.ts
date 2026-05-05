@@ -5,6 +5,13 @@ const CONFIG = {
         apiKey: '',
         customEndpoint: 'https://api.deepseek.com/v1', // OpenAI 兼容 API Base URL（旧字段名，兼容现有 GM 存储）
         customModel: '', // 自定义模型名称
+        customApiProfile: {
+            baseUrl: '',
+            apiKey: '',
+            model: '',
+            modelIds: [],
+            fetchedAt: ''
+        },
         apiProvider: 'deepseek',
         judgeMode: 'single',
 
@@ -81,6 +88,12 @@ const CONFIG = {
         temperature: 0.3,
         max_tokens: 500,
         stream: false
+    },
+
+    modelLabelNotes: {
+        'gemini-3.1-flash-lite-preview': '2026.5：推荐，免费',
+        'glm-4-flash': '2026.5：免费',
+        'qwen-flash': '2026.5：便宜快速'
     },
 
     apiProviders: {

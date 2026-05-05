@@ -89,22 +89,108 @@ const extractFinalContent = (data) => {
 
 const cloneRequestParams = (params) => JSON.parse(JSON.stringify(params || {}));
 
-const normalizeOpenAICompatibleEndpoint = (apiBaseUrl: string): string => {
-    const trimmed = (apiBaseUrl || '').trim().replace(/\/+$/, '');
+const normalizeOpenAICompatibleBaseUrl = (apiBaseUrl: string): string => {
+    let trimmed = (apiBaseUrl || '').trim().replace(/\/+$/, '');
 
     if (!trimmed) {
         return '';
     }
 
-    if (/\/chat\/completions$/i.test(trimmed)) {
+    trimmed = trimmed
+        .replace(/\/chat\/completions$/i, '')
+        .replace(/\/models$/i, '')
+        .replace(/\/+$/, '');
+
+    if (/\/v[\w.-]+$/i.test(trimmed) || /\/openai$/i.test(trimmed)) {
         return trimmed;
     }
 
-    if (/\/v[\w.-]+$/i.test(trimmed) || /\/openai$/i.test(trimmed)) {
-        return `${trimmed}/chat/completions`;
+    return `${trimmed}/v1`;
+};
+
+const getOpenAICompatibleChatEndpoint = (apiBaseUrl: string): string => {
+    const baseUrl = normalizeOpenAICompatibleBaseUrl(apiBaseUrl);
+    return baseUrl ? `${baseUrl}/chat/completions` : '';
+};
+
+const getOpenAICompatibleModelsEndpoint = (apiBaseUrl: string): string => {
+    const baseUrl = normalizeOpenAICompatibleBaseUrl(apiBaseUrl);
+    return baseUrl ? `${baseUrl}/models` : '';
+};
+
+const parseModelIds = (data): string[] => {
+    const entries = Array.isArray(data) ? data : data?.data;
+
+    if (!Array.isArray(entries)) {
+        return [];
     }
 
-    return `${trimmed}/v1/chat/completions`;
+    const seen = new Set();
+    const models = [];
+
+    entries.forEach(entry => {
+        const id = typeof entry === 'string' ? entry : entry?.id;
+        if (typeof id !== 'string') {
+            return;
+        }
+
+        const trimmed = id.trim();
+        if (!trimmed || seen.has(trimmed)) {
+            return;
+        }
+
+        seen.add(trimmed);
+        models.push(trimmed);
+    });
+
+    return models;
+};
+
+const scoreModelForCost = (modelId: string): number => {
+    const id = modelId.toLowerCase();
+    let score = 1000;
+
+    if (id.includes('free')) score -= 600;
+    if (id.includes('flash-lite')) score -= 520;
+    if (id.includes('lite')) score -= 500;
+    if (id.includes('flash')) score -= 450;
+    if (id.includes('mini')) score -= 400;
+    if (id.includes('nano')) score -= 380;
+    if (id.includes('small')) score -= 300;
+
+    if (/(image|vision|embedding|audio|tts|whisper|moderation|rerank)/.test(id)) score += 4000;
+    if (/(reasoner|thinking|r1)/.test(id)) score += 700;
+    if (id.includes('codex')) score += 800;
+    if (id.includes('pro')) score += 300;
+    if (id.includes('max')) score += 250;
+    if (id.includes('plus')) score += 150;
+
+    return score;
+};
+
+const chooseDefaultModel = (modelIds: string[], mode = 'preset'): string => {
+    if (mode === 'custom' || !Array.isArray(modelIds) || modelIds.length === 0) {
+        return '';
+    }
+
+    return [...modelIds].sort((a, b) => {
+        const scoreDiff = scoreModelForCost(a) - scoreModelForCost(b);
+        if (scoreDiff !== 0) {
+            return scoreDiff;
+        }
+
+        const lengthDiff = a.length - b.length;
+        if (lengthDiff !== 0) {
+            return lengthDiff;
+        }
+
+        return a.localeCompare(b);
+    })[0];
+};
+
+const formatModelOptionLabel = (modelId: string, fallbackLabel = modelId): string => {
+    const note = CONFIG.modelLabelNotes?.[modelId];
+    return note ? `${fallbackLabel}（${note}）` : fallbackLabel;
 };
 
 const getProviderConfig = (providerId) => {
@@ -112,10 +198,7 @@ const getProviderConfig = (providerId) => {
 };
 
 const getProviderModel = (providerId, savedModel) => {
-    const provider = getProviderConfig(providerId);
-    const validModels = provider?.models?.map(model => model.value) || [];
-
-    if (savedModel && validModels.includes(savedModel)) {
+    if (savedModel) {
         return savedModel;
     }
 
@@ -171,7 +254,7 @@ const AIService = {
             const apiBaseUrl = config.apiProvider === 'custom'
                 ? config.customEndpoint
                 : CONFIG.getProviderBaseUrl(config.apiProvider);
-            const endpoint = normalizeOpenAICompatibleEndpoint(apiBaseUrl);
+            const endpoint = getOpenAICompatibleChatEndpoint(apiBaseUrl);
 
             if (!endpoint) {
                 reject(new Error('请填写 OpenAI 兼容 API Base URL'));
@@ -192,8 +275,13 @@ const AIService = {
 
             // ✅ 构建请求体基础部分（防止提供商间模型混用）
             const modelName = config.apiProvider === 'custom'
-                ? (config.customModel || 'gpt-4o-mini')
+                ? config.customModel
                 : getProviderModel(config.apiProvider, config.customModel);
+
+            if (!modelName) {
+                reject(new Error('请先选择模型。建议先点击“① 获取模型”，再选择模型并测试连接'));
+                return;
+            }
 
             const baseBody = {
                 model: modelName,
@@ -305,6 +393,68 @@ const AIService = {
         });
     },
 
+    fetchModels: async (config): Promise<{ models: string[]; defaultModel: string }> => {
+        getUI().log('════════════════════════════', 'info');
+        getUI().log('📚 开始获取可用模型', 'info');
+        getUI().log('════════════════════════════', 'info');
+
+        return new Promise((resolve, reject) => {
+            const apiBaseUrl = config.apiProvider === 'custom'
+                ? config.customEndpoint
+                : CONFIG.getProviderBaseUrl(config.apiProvider);
+            const endpoint = getOpenAICompatibleModelsEndpoint(apiBaseUrl);
+
+            if (!endpoint) {
+                reject(new Error('请填写 OpenAI 兼容 API Base URL'));
+                return;
+            }
+
+            getUI().log(`🌐 模型列表 URL: ${endpoint}`, 'info', 'debug');
+            getUI().log('🔑 Authorization: Bearer [已隐藏]', 'info', 'debug');
+
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: endpoint,
+                headers: {
+                    'Authorization': `Bearer ${config.apiKey}`
+                },
+                timeout: 30000,
+                onload: (response) => {
+                    try {
+                        if (response.status !== 200) {
+                            reject(new Error(`HTTP ${response.status}: ${sanitizeDebugResponse(response.responseText, 300)}`));
+                            return;
+                        }
+
+                        const data = JSON.parse(response.responseText);
+                        const models = parseModelIds(data);
+
+                        if (models.length === 0) {
+                            reject(new Error('API 没有返回可用模型，请手动填写模型名称或检查 /models 接口'));
+                            return;
+                        }
+
+                        const defaultModel = chooseDefaultModel(
+                            models,
+                            config.apiProvider === 'custom' ? 'custom' : 'preset'
+                        );
+
+                        getUI().log(`✅ 成功获取 ${models.length} 个模型`, 'success');
+                        resolve({ models, defaultModel });
+                    } catch (e) {
+                        reject(new Error(`模型列表解析失败: ${e.message}`));
+                    }
+                },
+                onerror: (error) => {
+                    reject(new Error(`获取模型失败 - ${error.statusText || error.error || '连接失败'}`));
+                },
+                ontimeout: () => {
+                    reject(new Error('获取模型超时（30秒）'));
+                }
+            });
+        });
+    },
+
     // 测试API连接
     testAPI: async (config) => {
         getUI().log('════════════════════════════', 'info');
@@ -386,4 +536,12 @@ ${dossier}
     }
 };
 
-export { AIService };
+export {
+    AIService,
+    chooseDefaultModel,
+    formatModelOptionLabel,
+    getOpenAICompatibleChatEndpoint,
+    getOpenAICompatibleModelsEndpoint,
+    normalizeOpenAICompatibleBaseUrl,
+    parseModelIds
+};

@@ -1,5 +1,30 @@
 import { CONFIG } from '../config/catalog';
 
+const createDefaultCustomApiProfile = () => JSON.parse(JSON.stringify(CONFIG.defaults.customApiProfile));
+
+const normalizeCustomApiProfile = (profile) => {
+    const normalized = createDefaultCustomApiProfile();
+
+    if (!profile || typeof profile !== 'object') {
+        return normalized;
+    }
+
+    ['baseUrl', 'apiKey', 'model', 'fetchedAt'].forEach(key => {
+        if (typeof profile[key] === 'string') {
+            normalized[key] = profile[key];
+        }
+    });
+
+    if (Array.isArray(profile.modelIds)) {
+        normalized.modelIds = [...new Set(profile.modelIds
+            .filter(id => typeof id === 'string')
+            .map(id => id.trim())
+            .filter(Boolean))];
+    }
+
+    return normalized;
+};
+
 const loadConfig = () => {
     try {
         const saved = GM_getValue('config', null);
@@ -52,6 +77,27 @@ const loadConfig = () => {
                 merged[key] = CONFIG.defaults[key];
             }
         });
+
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        // 📌 自定义 API Profile 验证与旧配置迁移
+        // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        const hasSavedCustomProfile = Object.prototype.hasOwnProperty.call(saved, 'customApiProfile');
+        merged.customApiProfile = normalizeCustomApiProfile(merged.customApiProfile);
+        const customProfileHasData = Boolean(
+            merged.customApiProfile.baseUrl ||
+            merged.customApiProfile.apiKey ||
+            merged.customApiProfile.model ||
+            merged.customApiProfile.modelIds.length > 0
+        );
+
+        if ((!hasSavedCustomProfile || !customProfileHasData) && saved.apiProvider === 'custom') {
+            merged.customApiProfile = {
+                ...createDefaultCustomApiProfile(),
+                baseUrl: typeof saved.customEndpoint === 'string' ? saved.customEndpoint : '',
+                apiKey: typeof saved.apiKey === 'string' ? saved.apiKey : '',
+                model: typeof saved.customModel === 'string' ? saved.customModel : ''
+            };
+        }
 
         // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
         // 📌 布尔字段验证
@@ -136,6 +182,14 @@ const loadConfig = () => {
         // 旧版本只有“自定义 API”会使用 customEndpoint；预设模式下统一回填对应 Base URL。
         if (merged.apiProvider !== 'custom') {
             merged.customEndpoint = CONFIG.getProviderBaseUrl(merged.apiProvider);
+        } else if (
+            merged.customApiProfile.baseUrl ||
+            merged.customApiProfile.apiKey ||
+            merged.customApiProfile.model
+        ) {
+            merged.customEndpoint = merged.customApiProfile.baseUrl;
+            merged.apiKey = merged.customApiProfile.apiKey;
+            merged.customModel = merged.customApiProfile.model;
         }
 
 

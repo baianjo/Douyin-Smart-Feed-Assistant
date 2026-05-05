@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.2.0
+// @version      2.3.0
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
@@ -35,6 +35,13 @@
       // OpenAI 兼容 API Base URL（旧字段名，兼容现有 GM 存储）
       customModel: "",
       // 自定义模型名称
+      customApiProfile: {
+        baseUrl: "",
+        apiKey: "",
+        model: "",
+        modelIds: [],
+        fetchedAt: ""
+      },
       apiProvider: "deepseek",
       judgeMode: "single",
       // 记住用户选择的模板
@@ -106,6 +113,11 @@
       temperature: 0.3,
       max_tokens: 500,
       stream: false
+    },
+    modelLabelNotes: {
+      "gemini-3.1-flash-lite-preview": "2026.5\uFF1A\u63A8\u8350\uFF0C\u514D\u8D39",
+      "glm-4-flash": "2026.5\uFF1A\u514D\u8D39",
+      "qwen-flash": "2026.5\uFF1A\u4FBF\u5B9C\u5FEB\u901F"
     },
     apiProviders: {
       gpt: {
@@ -310,26 +322,89 @@
     };
   };
   var cloneRequestParams = (params) => JSON.parse(JSON.stringify(params || {}));
-  var normalizeOpenAICompatibleEndpoint = (apiBaseUrl) => {
-    const trimmed = (apiBaseUrl || "").trim().replace(/\/+$/, "");
+  var normalizeOpenAICompatibleBaseUrl = (apiBaseUrl) => {
+    let trimmed = (apiBaseUrl || "").trim().replace(/\/+$/, "");
     if (!trimmed) {
       return "";
     }
-    if (/\/chat\/completions$/i.test(trimmed)) {
+    trimmed = trimmed.replace(/\/chat\/completions$/i, "").replace(/\/models$/i, "").replace(/\/+$/, "");
+    if (/\/v[\w.-]+$/i.test(trimmed) || /\/openai$/i.test(trimmed)) {
       return trimmed;
     }
-    if (/\/v[\w.-]+$/i.test(trimmed) || /\/openai$/i.test(trimmed)) {
-      return `${trimmed}/chat/completions`;
+    return `${trimmed}/v1`;
+  };
+  var getOpenAICompatibleChatEndpoint = (apiBaseUrl) => {
+    const baseUrl = normalizeOpenAICompatibleBaseUrl(apiBaseUrl);
+    return baseUrl ? `${baseUrl}/chat/completions` : "";
+  };
+  var getOpenAICompatibleModelsEndpoint = (apiBaseUrl) => {
+    const baseUrl = normalizeOpenAICompatibleBaseUrl(apiBaseUrl);
+    return baseUrl ? `${baseUrl}/models` : "";
+  };
+  var parseModelIds = (data) => {
+    const entries = Array.isArray(data) ? data : data?.data;
+    if (!Array.isArray(entries)) {
+      return [];
     }
-    return `${trimmed}/v1/chat/completions`;
+    const seen = /* @__PURE__ */ new Set();
+    const models = [];
+    entries.forEach((entry) => {
+      const id = typeof entry === "string" ? entry : entry?.id;
+      if (typeof id !== "string") {
+        return;
+      }
+      const trimmed = id.trim();
+      if (!trimmed || seen.has(trimmed)) {
+        return;
+      }
+      seen.add(trimmed);
+      models.push(trimmed);
+    });
+    return models;
+  };
+  var scoreModelForCost = (modelId) => {
+    const id = modelId.toLowerCase();
+    let score = 1e3;
+    if (id.includes("free")) score -= 600;
+    if (id.includes("flash-lite")) score -= 520;
+    if (id.includes("lite")) score -= 500;
+    if (id.includes("flash")) score -= 450;
+    if (id.includes("mini")) score -= 400;
+    if (id.includes("nano")) score -= 380;
+    if (id.includes("small")) score -= 300;
+    if (/(image|vision|embedding|audio|tts|whisper|moderation|rerank)/.test(id)) score += 4e3;
+    if (/(reasoner|thinking|r1)/.test(id)) score += 700;
+    if (id.includes("codex")) score += 800;
+    if (id.includes("pro")) score += 300;
+    if (id.includes("max")) score += 250;
+    if (id.includes("plus")) score += 150;
+    return score;
+  };
+  var chooseDefaultModel = (modelIds, mode = "preset") => {
+    if (mode === "custom" || !Array.isArray(modelIds) || modelIds.length === 0) {
+      return "";
+    }
+    return [...modelIds].sort((a, b) => {
+      const scoreDiff = scoreModelForCost(a) - scoreModelForCost(b);
+      if (scoreDiff !== 0) {
+        return scoreDiff;
+      }
+      const lengthDiff = a.length - b.length;
+      if (lengthDiff !== 0) {
+        return lengthDiff;
+      }
+      return a.localeCompare(b);
+    })[0];
+  };
+  var formatModelOptionLabel = (modelId, fallbackLabel = modelId) => {
+    const note = CONFIG.modelLabelNotes?.[modelId];
+    return note ? `${fallbackLabel}\uFF08${note}\uFF09` : fallbackLabel;
   };
   var getProviderConfig = (providerId) => {
     return CONFIG.apiProviders[providerId];
   };
   var getProviderModel = (providerId, savedModel) => {
-    const provider = getProviderConfig(providerId);
-    const validModels = provider?.models?.map((model) => model.value) || [];
-    if (savedModel && validModels.includes(savedModel)) {
+    if (savedModel) {
       return savedModel;
     }
     return CONFIG.getDefaultModel(providerId);
@@ -376,7 +451,7 @@
       return new Promise((resolve, reject) => {
         const provider = getProviderConfig(config.apiProvider);
         const apiBaseUrl = config.apiProvider === "custom" ? config.customEndpoint : CONFIG.getProviderBaseUrl(config.apiProvider);
-        const endpoint = normalizeOpenAICompatibleEndpoint(apiBaseUrl);
+        const endpoint = getOpenAICompatibleChatEndpoint(apiBaseUrl);
         if (!endpoint) {
           reject(new Error("\u8BF7\u586B\u5199 OpenAI \u517C\u5BB9 API Base URL"));
           return;
@@ -389,7 +464,11 @@
           "Content-Type": "application/json",
           "Authorization": `Bearer ${config.apiKey}`
         };
-        const modelName = config.apiProvider === "custom" ? config.customModel || "gpt-4o-mini" : getProviderModel(config.apiProvider, config.customModel);
+        const modelName = config.apiProvider === "custom" ? config.customModel : getProviderModel(config.apiProvider, config.customModel);
+        if (!modelName) {
+          reject(new Error("\u8BF7\u5148\u9009\u62E9\u6A21\u578B\u3002\u5EFA\u8BAE\u5148\u70B9\u51FB\u201C\u2460 \u83B7\u53D6\u6A21\u578B\u201D\uFF0C\u518D\u9009\u62E9\u6A21\u578B\u5E76\u6D4B\u8BD5\u8FDE\u63A5"));
+          return;
+        }
         const baseBody = {
           model: modelName,
           messages
@@ -478,6 +557,57 @@
             clearInterval(waitTimer);
             getUI().log("\u23F1\uFE0F \u8BF7\u6C42\u8D85\u65F6\uFF0830\u79D2\uFF09", "error");
             reject(new Error("\u8BF7\u6C42\u8D85\u65F6\uFF0C\u53EF\u80FD\u662F\u7F51\u7EDC\u95EE\u9898\u6216\u6A21\u578B\u54CD\u5E94\u8FC7\u6162"));
+          }
+        });
+      });
+    },
+    fetchModels: async (config) => {
+      getUI().log("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550", "info");
+      getUI().log("\u{1F4DA} \u5F00\u59CB\u83B7\u53D6\u53EF\u7528\u6A21\u578B", "info");
+      getUI().log("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550", "info");
+      return new Promise((resolve, reject) => {
+        const apiBaseUrl = config.apiProvider === "custom" ? config.customEndpoint : CONFIG.getProviderBaseUrl(config.apiProvider);
+        const endpoint = getOpenAICompatibleModelsEndpoint(apiBaseUrl);
+        if (!endpoint) {
+          reject(new Error("\u8BF7\u586B\u5199 OpenAI \u517C\u5BB9 API Base URL"));
+          return;
+        }
+        getUI().log(`\u{1F310} \u6A21\u578B\u5217\u8868 URL: ${endpoint}`, "info", "debug");
+        getUI().log("\u{1F511} Authorization: Bearer [\u5DF2\u9690\u85CF]", "info", "debug");
+        GM_xmlhttpRequest({
+          method: "GET",
+          url: endpoint,
+          headers: {
+            "Authorization": `Bearer ${config.apiKey}`
+          },
+          timeout: 3e4,
+          onload: (response) => {
+            try {
+              if (response.status !== 200) {
+                reject(new Error(`HTTP ${response.status}: ${sanitizeDebugResponse(response.responseText, 300)}`));
+                return;
+              }
+              const data = JSON.parse(response.responseText);
+              const models = parseModelIds(data);
+              if (models.length === 0) {
+                reject(new Error("API \u6CA1\u6709\u8FD4\u56DE\u53EF\u7528\u6A21\u578B\uFF0C\u8BF7\u624B\u52A8\u586B\u5199\u6A21\u578B\u540D\u79F0\u6216\u68C0\u67E5 /models \u63A5\u53E3"));
+                return;
+              }
+              const defaultModel = chooseDefaultModel(
+                models,
+                config.apiProvider === "custom" ? "custom" : "preset"
+              );
+              getUI().log(`\u2705 \u6210\u529F\u83B7\u53D6 ${models.length} \u4E2A\u6A21\u578B`, "success");
+              resolve({ models, defaultModel });
+            } catch (e) {
+              reject(new Error(`\u6A21\u578B\u5217\u8868\u89E3\u6790\u5931\u8D25: ${e.message}`));
+            }
+          },
+          onerror: (error) => {
+            reject(new Error(`\u83B7\u53D6\u6A21\u578B\u5931\u8D25 - ${error.statusText || error.error || "\u8FDE\u63A5\u5931\u8D25"}`));
+          },
+          ontimeout: () => {
+            reject(new Error("\u83B7\u53D6\u6A21\u578B\u8D85\u65F6\uFF0830\u79D2\uFF09"));
           }
         });
       });
@@ -798,6 +928,22 @@ ${dossier}
   };
 
   // src/storage/config-storage.ts
+  var createDefaultCustomApiProfile = () => JSON.parse(JSON.stringify(CONFIG.defaults.customApiProfile));
+  var normalizeCustomApiProfile = (profile) => {
+    const normalized = createDefaultCustomApiProfile();
+    if (!profile || typeof profile !== "object") {
+      return normalized;
+    }
+    ["baseUrl", "apiKey", "model", "fetchedAt"].forEach((key) => {
+      if (typeof profile[key] === "string") {
+        normalized[key] = profile[key];
+      }
+    });
+    if (Array.isArray(profile.modelIds)) {
+      normalized.modelIds = [...new Set(profile.modelIds.filter((id) => typeof id === "string").map((id) => id.trim()).filter(Boolean))];
+    }
+    return normalized;
+  };
   var loadConfig = () => {
     try {
       const saved = GM_getValue("config", null);
@@ -837,6 +983,19 @@ ${dossier}
           merged[key] = CONFIG.defaults[key];
         }
       });
+      const hasSavedCustomProfile = Object.prototype.hasOwnProperty.call(saved, "customApiProfile");
+      merged.customApiProfile = normalizeCustomApiProfile(merged.customApiProfile);
+      const customProfileHasData = Boolean(
+        merged.customApiProfile.baseUrl || merged.customApiProfile.apiKey || merged.customApiProfile.model || merged.customApiProfile.modelIds.length > 0
+      );
+      if ((!hasSavedCustomProfile || !customProfileHasData) && saved.apiProvider === "custom") {
+        merged.customApiProfile = {
+          ...createDefaultCustomApiProfile(),
+          baseUrl: typeof saved.customEndpoint === "string" ? saved.customEndpoint : "",
+          apiKey: typeof saved.apiKey === "string" ? saved.apiKey : "",
+          model: typeof saved.customModel === "string" ? saved.customModel : ""
+        };
+      }
       const boolFields = ["panelMinimized", "enableComments"];
       boolFields.forEach((key) => {
         if (typeof merged[key] !== "boolean") {
@@ -877,6 +1036,10 @@ ${dossier}
       }
       if (merged.apiProvider !== "custom") {
         merged.customEndpoint = CONFIG.getProviderBaseUrl(merged.apiProvider);
+      } else if (merged.customApiProfile.baseUrl || merged.customApiProfile.apiKey || merged.customApiProfile.model) {
+        merged.customEndpoint = merged.customApiProfile.baseUrl;
+        merged.apiKey = merged.customApiProfile.apiKey;
+        merged.customModel = merged.customApiProfile.model;
       }
       console.log("[\u667A\u80FD\u52A9\u624B] \u2705 \u914D\u7F6E\u52A0\u8F7D\u5E76\u9A8C\u8BC1\u5B8C\u6210");
       return merged;
@@ -1200,6 +1363,18 @@ ${dossier}
                 cursor: pointer;
                 transition: all 0.2s;
                 margin-top: 10px;
+            }
+
+            .smart-feed-action-row {
+                display: flex;
+                gap: 10px;
+                margin-top: 10px;
+            }
+
+            .smart-feed-action-row .smart-feed-button {
+                flex: 1;
+                width: auto;
+                margin-top: 0;
             }
 
             .smart-feed-button-primary {
@@ -1533,19 +1708,6 @@ ${dossier}
                         \u26A0\uFE0F \u672C\u5DE5\u5177\u53EF\u80FD\u56E0\u6296\u97F3\u66F4\u65B0\u800C\u5931\u6548\uFF0C\u9047\u5230\u95EE\u9898\u8BF7\u53CA\u65F6\u53CD\u9988\uFF01
                     </div>
 
-                    <div class="smart-feed-section">
-                        <div class="smart-feed-label">
-                            \u{1F50C} API Base URL \u9884\u8BBE
-                            <span class="smart-feed-help" title="\u70B9\u51FB\u201C\u5173\u4E8E\u201D\u6807\u7B7E\u67E5\u770B\u8BE6\u7EC6\u6559\u7A0B">?</span>
-                        </div>
-                        <select class="smart-feed-select" id="apiProvider">
-                            ${Object.entries(CONFIG.apiProviders).map(
-        ([key, provider]) => `<option value="${key}">${provider.name}</option>`
-      ).join("")}
-                            <option value="custom">\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API</option>
-                        </select>
-                    </div>
-
                     <!-- \u{1F195} \u91CD\u8981\u63D0\u793A\u6846\uFF08\u53EF\u6298\u53E0\uFF09 -->
                     <div class="smart-feed-info-box collapsible-help-box" style="margin-top: 10px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b;">
                         <div class="help-header">
@@ -1571,11 +1733,11 @@ ${dossier}
                                     <tr>
                                         <td style="width: 60px; vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 1</td>
                                         <td>
-                                            <strong>\u83B7\u53D6 API Key</strong>\uFF08\u6CE8\u518C\u5373\u53EF\uFF09<br>
+                                            <strong>\u9009\u62E9 API \u5730\u5740\u5E76\u7C98\u8D34 Key</strong><br>
                                             <span style="color: #64748b;">
-                                            \u2022 \u63A8\u8350\u65B0\u624B\u9009 <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: #2563eb;">DeepSeek</a><br>
-                                            \u2022 \u65E0\u8BBA\u4F55\u79CD\u5E73\u53F0\uFF0C\u6CE8\u518C\u540E\u5728\u63A7\u5236\u53F0\u70B9"\u521B\u5EFA API Key"\uFF08\u786E\u4FDD\u6709\u4F59\u989D\uFF0C1\u5143\u8DB3\u77E3\u3002\u521D\u6B21\u6CE8\u518C\u53EF\u80FD\u4F1A\u9001\uFF09\uFF0C\u590D\u5236\u90A3\u4E32\u82F1\u6587<br>
-                                            \u2022 \u6216\u9009 <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color: #2563eb;">\u667A\u8C31GLM</a>\uFF08\u6709\u957F\u671F\u514D\u8D39\u6A21\u578B\uFF0C\u4F46\u5176\u63A7\u5236\u53F0\u7A0D\u663E\u590D\u6742\uFF09
+                                            \u2022 \u65B0\u624B\u63A8\u8350\u5148\u9009 <strong>DeepSeek</strong> \u6216 <strong>GLM</strong><br>
+                                            \u2022 \u4F7F\u7528\u672C\u5730/\u8F6C\u53D1\u670D\u52A1\u65F6\uFF0C\u9009\u62E9"<strong>\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API</strong>"\u5E76\u586B\u5199 Base URL<br>
+                                            \u2022 \u628A\u63A7\u5236\u53F0\u521B\u5EFA\u7684 API Key \u7C98\u8D34\u5230\u8F93\u5165\u6846
                                             </span>
                                         </td>
                                     </tr>
@@ -1583,11 +1745,11 @@ ${dossier}
                                     <tr>
                                         <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 2</td>
                                         <td>
-                                            <strong>\u586B\u5199\u914D\u7F6E</strong><br>
+                                            <strong>\u5148\u70B9"\u2460 \u83B7\u53D6\u6A21\u578B"</strong><br>
                                             <span style="color: #64748b;">
-                                            \u2022 \u5728\u4E0B\u65B9"<strong>API Base URL \u9884\u8BBE</strong>"\u9009\u4F60\u521A\u6CE8\u518C\u7684\u5E73\u53F0<br>
-                                            \u2022 \u628A\u590D\u5236\u7684 Key \u7C98\u8D34\u5230"<strong>API Key</strong>"\u8F93\u5165\u6846<br>
-                                            \u2022 \u70B9\u51FB"<strong>\u{1F9EA} \u6D4B\u8BD5\u8FDE\u63A5</strong>"\u6309\u94AE\uFF08\u770B\u5230\u7EFF\u8272\u6210\u529F\u63D0\u793A\u5C31\u5BF9\u4E86\uFF09
+                                            \u2022 \u70B9\u51FB\u4E0B\u65B9\u7EFF\u8272\u6309\u94AE\uFF0C\u811A\u672C\u4F1A\u81EA\u52A8\u8BFB\u53D6\u53EF\u7528\u6A21\u578B<br>
+                                            \u2022 \u6210\u529F\u540E\u4F1A\u51FA\u73B0\u6A21\u578B\u5217\u8868\uFF0C\u9884\u8BBE API \u4F1A\u81EA\u52A8\u9009\u4E00\u4E2A\u66F4\u7701\u94B1\u7684\u6A21\u578B<br>
+                                            \u2022 \u81EA\u5B9A\u4E49 API \u9700\u8981\u4F60\u5728\u5217\u8868\u91CC\u624B\u52A8\u9009\u4E00\u4E2A\u6A21\u578B
                                             </span>
                                         </td>
                                     </tr>
@@ -1595,11 +1757,11 @@ ${dossier}
                                     <tr>
                                         <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 3</td>
                                         <td>
-                                            <strong>\u8BBE\u7F6E\u504F\u597D</strong><br>
+                                            <strong>\u518D\u70B9"\u2461 \u6D4B\u8BD5\u8FDE\u63A5"</strong><br>
                                             <span style="color: #64748b;">
-                                            \u2022 \u65B0\u624B\u76F4\u63A5\u9009"<strong>\u9884\u8BBE\u6A21\u677F</strong>"\uFF08\u5982"\u9752\u5C11\u5E74\u5185\u5BB9\u5F15\u5BFC"\uFF09<br>
-                                            \u2022 \u6216\u8005\u5728\u4E09\u4E2A\u89C4\u5219\u6846\u91CC\u63CF\u8FF0\u4F60\u60F3\u770B/\u4E0D\u60F3\u770B\u4EC0\u4E48<br>
-                                            \u2022 <strong style="color: #dc2626;">\u6EDA\u52A8\u5230\u5E95\u90E8\u70B9"\u{1F4BE} \u4FDD\u5B58\u5F53\u524D\u914D\u7F6E"</strong>
+                                            \u2022 \u770B\u5230\u7EFF\u8272\u6210\u529F\u63D0\u793A\u540E\uFF0C\u518D\u8BBE\u7F6E\u4E0B\u9762\u7684\u504F\u597D\u89C4\u5219<br>
+                                            \u2022 \u65B0\u624B\u76F4\u63A5\u9009"<strong>\u9884\u8BBE\u6A21\u677F</strong>"\u5373\u53EF<br>
+                                            \u2022 <strong style="color: #dc2626;">\u6700\u540E\u70B9"\u{1F4BE} \u4FDD\u5B58\u5F53\u524D\u914D\u7F6E"</strong>
                                             </span>
                                         </td>
                                     </tr>
@@ -1622,7 +1784,7 @@ ${dossier}
                                 <summary style="cursor: pointer; color: #dc2626; font-weight: bold;">\u274C \u9047\u5230\u95EE\u9898\uFF1F\u70B9\u51FB\u67E5\u770B\u5E38\u89C1\u9519\u8BEF</summary>
                                 <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
                                     <strong>Q: \u70B9"\u6D4B\u8BD5\u8FDE\u63A5"\u5931\u8D25\uFF1F</strong><br>
-                                    A: \u2460 \u68C0\u67E5 Key \u524D\u540E\u6709\u6CA1\u6709\u591A\u4F59\u7A7A\u683C \u2461 \u786E\u8BA4\u9009\u5BF9\u4E86\u63D0\u4F9B\u5546 \u2462 \u68C0\u67E5\u7F51\u7EDC\u80FD\u5426\u8BBF\u95EE\u5BF9\u5E94\u7F51\u7AD9<br><br>
+                                    A: \u2460 \u5148\u70B9"\u2460 \u83B7\u53D6\u6A21\u578B" \u2461 \u68C0\u67E5 Key \u524D\u540E\u6709\u6CA1\u6709\u591A\u4F59\u7A7A\u683C \u2462 \u786E\u8BA4 API Base URL \u80FD\u8BBF\u95EE<br><br>
                     
                                     <strong>Q: \u811A\u672C\u4E00\u76F4\u663E\u793A"\u65E0\u6CD5\u5B9A\u4F4D\u89C6\u9891"\uFF1F</strong><br>
                                     A: \u2460 \u786E\u8BA4\u5728"\u63A8\u8350"\u9875\u9762 \u2461 \u5173\u95ED\u4E86\u81EA\u52A8\u8FDE\u64AD \u2462 \u5237\u65B0\u9875\u9762\u91CD\u8BD5<br><br>
@@ -1634,26 +1796,31 @@ ${dossier}
                     
                             <hr style="border: none; border-top: 1px dashed #cbd5e1; margin: 15px 0;">
                     
-                            <!-- \u7B2C\u4E94\u90E8\u5206\uFF1A\u8FDB\u9636\u8BF4\u660E\uFF08\u6298\u53E0\uFF09 -->
-                            <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #7c3aed; font-weight: bold;">\u{1F527} \u8FDB\u9636\uFF1A\u81EA\u5B9A\u4E49 API \u600E\u4E48\u7528\uFF1F</summary>
-                                <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
-                                    \u5982\u679C\u4F60\u7528\u7684\u662F\u7B2C\u4E09\u65B9\u8F6C\u53D1\u670D\u52A1\uFF08\u5982 OpenAI \u4E2D\u8F6C\uFF09\uFF1A<br><br>
-                    
-                                    1\uFE0F\u20E3 \u5728"<strong>API Base URL \u9884\u8BBE</strong>"\u9009"<strong>\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API</strong>"<br>
-                                    2\uFE0F\u20E3 \u586B\u5199 API Base URL\uFF08\u53EA\u9700\u586B\u5230\u57DF\u540D\u6216 /v1\uFF0C\u811A\u672C\u4F1A\u81EA\u52A8\u8865\u5168\uFF09\uFF1A<br>
-                                    <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">http://127.0.0.1:8317</code><br>
-                                    3\uFE0F\u20E3 \u624B\u52A8\u8F93\u5165\u6A21\u578B\u540D\u79F0\uFF08\u5982 <code>gpt-4o-mini</code>\uFF09<br><br>
-                    
-                                    <strong style="color: #92400e;">\u26A0\uFE0F \u63A8\u7406/\u601D\u8003\u6A21\u578B\u517C\u5BB9\u8BF4\u660E</strong><br>
-                                    \u811A\u672C\u4E0D\u4F1A\u6309\u5177\u4F53\u6A21\u578B\u540D\u731C\u6D4B\u5382\u5546\u601D\u8003\u53C2\u6570\uFF1B\u4F1A\u7528\u77ED\u8F93\u51FA\u63D0\u793A\u548C\u6700\u7EC8\u56DE\u7B54\u89E3\u6790\u6765\u517C\u5BB9\u5927\u591A\u6570\u6A21\u578B\u3002
-                                </div>
-                            </details>
-                    
                             <div style="margin-top: 15px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 12px; text-align: center; color: #7c3aed;">
-                                \u{1F4A1} <strong>\u5C0F\u8D34\u58EB</strong>\uFF1A\u7B2C\u4E00\u6B21\u4F7F\u7528\u5EFA\u8BAE\u4ECE\u9884\u8BBE\u6A21\u677F\u5F00\u59CB\uFF0C\u719F\u6089\u540E\u518D\u81EA\u5B9A\u4E49\u89C4\u5219
+                                \u{1F4A1} <strong>\u5C0F\u8D34\u58EB</strong>\uFF1A\u987A\u5E8F\u8BB0\u4F4F\u5C31\u884C\uFF1A\u586B\u5730\u5740\u548C Key \u2192 \u2460 \u83B7\u53D6\u6A21\u578B \u2192 \u2461 \u6D4B\u8BD5\u8FDE\u63A5
                             </div>
                         </div>
+                    </div>
+
+                    <div class="smart-feed-section">
+                        <div class="smart-feed-label">
+                            \u{1F50C} API Base URL \u9884\u8BBE
+                            <span class="smart-feed-help" title="\u70B9\u51FB\u201C\u5173\u4E8E\u201D\u6807\u7B7E\u67E5\u770B\u8BE6\u7EC6\u6559\u7A0B">?</span>
+                        </div>
+                        <select class="smart-feed-select" id="apiProvider">
+                            ${Object.entries(CONFIG.apiProviders).map(
+        ([key, provider]) => `<option value="${key}">${provider.name}</option>`
+      ).join("")}
+                            <option value="custom">\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API</option>
+                        </select>
+                    </div>
+
+                    <div class="smart-feed-section" id="customEndpointSection">
+                        <div class="smart-feed-label">
+                            \u{1F310} API Base URL
+                            <span class="smart-feed-help" title="\u652F\u6301\u5B98\u65B9\u3001\u8F6C\u53D1\u3001\u672C\u5730 OpenAI \u517C\u5BB9 API">?</span>
+                        </div>
+                        <input type="text" class="smart-feed-input" id="customEndpoint" placeholder="\u4F8B\u5982 http://127.0.0.1:8317 \u6216 https://api.example.com/v1">
                     </div>
 
                     <div class="smart-feed-section">
@@ -1678,34 +1845,14 @@ ${dossier}
                         </small>
                     </div>
 
-                    <!-- OpenAI \u517C\u5BB9 API Base URL -->
-                    <div class="smart-feed-section" id="customEndpointSection">
-                        <div class="smart-feed-label">
-                            \u{1F310} API Base URL
-                            <span class="smart-feed-help" title="\u652F\u6301\u5B98\u65B9\u3001\u8F6C\u53D1\u3001\u672C\u5730 OpenAI \u517C\u5BB9 API">?</span>
-                        </div>
-                        <input type="text" class="smart-feed-input" id="customEndpoint" placeholder="\u4F8B\u5982 http://127.0.0.1:8317 \u6216 https://api.example.com/v1">
-                        <small style="color: #64748b; display: block; margin-top: 5px;">
-                            \u{1F4A1} <strong>\u586B\u5199\u65B9\u5F0F\uFF08\u4EFB\u9009\u5176\u4E00\uFF09</strong>\uFF1A<br>
-                            \u2022 \u672C\u5730\u670D\u52A1\uFF1A<code>http://cliproxyapi:8317</code> \u6216 <code>http://127.0.0.1:8317</code><br>
-                            \u2022 \u53EA\u586B\u57DF\u540D\uFF1A<code>https://api.example.com</code><br>
-                            \u2022 \u586B\u5230\u7248\u672C\u53F7\uFF1A<code>https://api.example.com/v1</code><br>
-                            \u2022 \u586B\u5B8C\u6574\u8DEF\u5F84\uFF1A<code>https://api.example.com/v1/chat/completions</code><br>
-                            <strong>\u2705 \u811A\u672C\u4F1A\u667A\u80FD\u8865\u5168\u7F3A\u5931\u90E8\u5206\uFF1B\u624B\u52A8\u4FEE\u6539\u540E\u4F1A\u81EA\u52A8\u5207\u5230\u81EA\u5B9A\u4E49\u6A21\u5F0F</strong>
-                        </small>
-
-                        <!-- \u{1F195} \u601D\u8003\u6A21\u578B\u517C\u5BB9\u63D0\u793A -->
-                        <div style="background: rgba(254, 243, 199, 0.9); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #92400e;">
-                            <strong>\u26A0\uFE0F \u63A8\u7406/\u601D\u8003\u6A21\u578B\u8BF4\u660E</strong><br>
-                            \u6240\u6709\u9884\u8BBE\u548C\u81EA\u5B9A\u4E49\u5730\u5740\u90FD\u4F1A\u6309 OpenAI \u517C\u5BB9 API \u53D1\u9001\u8BF7\u6C42\u3002<br>
-                            \u811A\u672C\u4F1A\u4F18\u5148\u8BFB\u53D6\u6700\u7EC8\u56DE\u7B54\uFF08<code>content</code>\uFF09\uFF0C\u5E76\u5FFD\u7565 <code>reasoning_content</code> / <code>reasoning</code> \u7B49\u601D\u8003\u8FC7\u7A0B\u3002<br><br>
-                            <strong>\u6CE8\u610F</strong>\uFF1A\u4E0D\u540C\u5382\u5546\u7684\u601D\u8003\u5F00\u5173\u53D8\u5316\u5F88\u5FEB\uFF0C\u811A\u672C\u9ED8\u8BA4\u4E0D\u8FFD\u8E2A\u6BCF\u4E2A\u6A21\u578B\u7684\u4E13\u5C5E\u53C2\u6570\uFF1B\u5982\u679C\u6A21\u578B\u4ECD\u7136\u601D\u8003\uFF0C\u90A3\u5C31\u7531\u6A21\u578B\u6216\u4F60\u7684\u8F6C\u53D1\u670D\u52A1\u5904\u7406\uFF0C\u8D39\u7528\u4E5F\u6309\u4F60\u7684 API \u8D26\u6237\u7ED3\u7B97\u3002
-                        </div>
+                    <div class="smart-feed-action-row">
+                        <button class="smart-feed-button smart-feed-button-primary" id="fetchModelsBtn">
+                            \u2460 \u83B7\u53D6\u6A21\u578B
+                        </button>
+                        <button class="smart-feed-button smart-feed-button-secondary" id="testApiBtn">
+                            \u2461 \u6D4B\u8BD5\u8FDE\u63A5
+                        </button>
                     </div>
-
-                    <button class="smart-feed-button smart-feed-button-secondary" id="testApiBtn" style="margin-top: 10px;">
-                        \u{1F9EA} \u6D4B\u8BD5\u8FDE\u63A5
-                    </button>
 
                     <div class="smart-feed-section">
                         <div class="smart-feed-label">\u9884\u8BBE\u6A21\u677F</div>
@@ -1935,6 +2082,43 @@ ${dossier}
           setTimeout(() => notice.remove(), 300);
         }, 2e3);
       }
+      function getModelControlValue() {
+        const modelEl = document.getElementById("modelSelect");
+        return modelEl?.value?.trim() || "";
+      }
+      function getCurrentModelIds(fallbackIds = []) {
+        const modelEl = document.getElementById("modelSelect");
+        if (modelEl?.tagName === "SELECT") {
+          return Array.from(modelEl.options).map((option) => option.value).filter(Boolean);
+        }
+        return fallbackIds;
+      }
+      function updateCustomApiProfileFromForm(cfg, modelIds = null, fetchedAt = null) {
+        const currentProfile = cfg.customApiProfile || CONFIG.defaults.customApiProfile;
+        const customEndpointEl = document.getElementById("customEndpoint");
+        const apiKeyEl = document.getElementById("apiKey");
+        cfg.customApiProfile = {
+          baseUrl: customEndpointEl?.value?.trim() || cfg.customEndpoint || currentProfile.baseUrl || "",
+          apiKey: apiKeyEl?.value?.trim() || cfg.apiKey || currentProfile.apiKey || "",
+          model: getModelControlValue() || cfg.customModel || currentProfile.model || "",
+          modelIds: Array.isArray(modelIds) ? modelIds : getCurrentModelIds(currentProfile.modelIds || []),
+          fetchedAt: fetchedAt || currentProfile.fetchedAt || ""
+        };
+        cfg.customEndpoint = cfg.customApiProfile.baseUrl;
+        cfg.apiKey = cfg.customApiProfile.apiKey;
+        cfg.customModel = cfg.customApiProfile.model;
+      }
+      function readApiFormConfig() {
+        const selectedProvider = document.getElementById("apiProvider").value;
+        const apiBaseUrl = document.getElementById("customEndpoint").value.trim();
+        const effectiveProvider = selectedProvider !== "custom" && apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider) ? "custom" : selectedProvider;
+        return {
+          apiKey: document.getElementById("apiKey").value.trim(),
+          apiProvider: effectiveProvider,
+          customEndpoint: apiBaseUrl,
+          customModel: getModelControlValue()
+        };
+      }
       function syncProviderPresetFromBaseUrl(cfg) {
         const apiProviderEl = document.getElementById("apiProvider");
         const customEndpointEl = document.getElementById("customEndpoint");
@@ -1946,13 +2130,20 @@ ${dossier}
         cfg.customEndpoint = apiBaseUrl;
         if (selectedProvider !== "custom" && apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider)) {
           cfg.apiProvider = "custom";
+          cfg.customEndpoint = apiBaseUrl;
+          cfg.apiKey = document.getElementById("apiKey")?.value?.trim() || cfg.apiKey;
+          cfg.customModel = getModelControlValue();
+          updateCustomApiProfileFromForm(cfg);
           apiProviderEl.value = "custom";
           updateModelOptions("custom");
           return;
         }
         cfg.apiProvider = selectedProvider;
+        if (selectedProvider === "custom") {
+          updateCustomApiProfileFromForm(cfg);
+        }
       }
-      function updateModelOptions(provider) {
+      function updateModelOptions(provider, modelIdsOverride = null, selectedModelOverride = null) {
         const modelSelect = document.getElementById("modelSelect");
         const modelSection = document.getElementById("modelSection");
         if (!modelSelect || !modelSection) {
@@ -1960,16 +2151,20 @@ ${dossier}
           return;
         }
         const providerConfig = CONFIG.apiProviders[provider];
-        const options = providerConfig?.models || [];
         const savedConfig = loadConfig();
-        if (provider === "custom" || options.length === 0) {
+        const profile = savedConfig.customApiProfile || CONFIG.defaults.customApiProfile;
+        const overrideIds = Array.isArray(modelIdsOverride) ? modelIdsOverride : null;
+        const isCustom = provider === "custom";
+        const customModelIds = overrideIds || profile.modelIds || [];
+        if (isCustom && customModelIds.length === 0) {
           modelSelect.outerHTML = '<input type="text" class="smart-feed-input" id="modelSelect" placeholder="\u8F93\u5165\u6A21\u578B\u540D\u79F0\uFF08\u5982 gpt-4o-mini\uFF09">';
           const modelInput = document.getElementById("modelSelect");
           if (modelInput) {
-            modelInput.value = savedConfig.customModel || "";
+            modelInput.value = selectedModelOverride ?? profile.model ?? savedConfig.customModel ?? "";
             modelInput.addEventListener("blur", async (e) => {
               const cfg = loadConfig();
               cfg.customModel = e.target.value.trim();
+              updateCustomApiProfileFromForm(cfg);
               await saveConfig(cfg);
               showSaveNotice();
             });
@@ -1977,29 +2172,47 @@ ${dossier}
           const smallEl = modelSection.querySelector("small");
           if (smallEl) smallEl.style.display = "none";
         } else {
-          if (modelSelect.tagName !== "SELECT") {
-            modelSelect.outerHTML = '<select class="smart-feed-select" id="modelSelect"></select>';
-          }
+          modelSelect.outerHTML = '<select class="smart-feed-select" id="modelSelect"></select>';
           const newSelect = document.getElementById("modelSelect");
           if (!newSelect) return;
-          newSelect.innerHTML = "";
+          const options = isCustom ? customModelIds.map((id) => ({ value: id, label: formatModelOptionLabel(id) })) : overrideIds ? overrideIds.map((id) => ({ value: id, label: formatModelOptionLabel(id) })) : (providerConfig?.models || []).map((opt) => ({
+            value: opt.value,
+            label: formatModelOptionLabel(opt.value, opt.label)
+          }));
+          if (isCustom) {
+            const placeholder = document.createElement("option");
+            placeholder.value = "";
+            placeholder.textContent = "<\u8BF7\u9009\u62E9\u6A21\u578B>";
+            newSelect.appendChild(placeholder);
+          }
           options.forEach((opt) => {
             const option = document.createElement("option");
             option.value = opt.value;
             option.textContent = opt.label;
             newSelect.appendChild(option);
           });
+          if (!isCustom && savedConfig.customModel && !options.find((opt) => opt.value === savedConfig.customModel)) {
+            const option = document.createElement("option");
+            option.value = savedConfig.customModel;
+            option.textContent = formatModelOptionLabel(savedConfig.customModel);
+            newSelect.appendChild(option);
+          }
           const smallEl = modelSection.querySelector("small");
           if (smallEl) smallEl.style.display = "block";
-          const fallbackModel = providerConfig.defaultModel || options[0]?.value || "";
-          if (savedConfig.customModel && options.find((o) => o.value === savedConfig.customModel)) {
-            newSelect.value = savedConfig.customModel;
-          } else if (fallbackModel) {
-            newSelect.value = fallbackModel;
+          const fallbackModel = isCustom ? "" : selectedModelOverride ?? savedConfig.customModel ?? providerConfig?.defaultModel ?? options[0]?.value ?? "";
+          const customSelectedModel = selectedModelOverride ?? profile.model ?? "";
+          const selectedModel = isCustom ? customSelectedModel : fallbackModel;
+          if (selectedModel && Array.from(newSelect.options).some((option) => option.value === selectedModel)) {
+            newSelect.value = selectedModel;
+          } else {
+            newSelect.value = "";
           }
           newSelect.addEventListener("change", async (e) => {
             const cfg = loadConfig();
             cfg.customModel = e.target.value;
+            if (document.getElementById("apiProvider")?.value === "custom") {
+              updateCustomApiProfileFromForm(cfg);
+            }
             await saveConfig(cfg);
             showSaveNotice();
           });
@@ -2163,11 +2376,26 @@ ${dossier}
       document.getElementById("apiProvider").addEventListener("change", async (e) => {
         const provider = e.target.value;
         const cfg = loadConfig();
+        const previousProvider = cfg.apiProvider;
+        if (previousProvider === "custom") {
+          updateCustomApiProfileFromForm(cfg);
+        }
         cfg.apiProvider = provider;
-        if (provider !== "custom") {
+        if (provider === "custom") {
+          const profile = cfg.customApiProfile || CONFIG.defaults.customApiProfile;
+          cfg.customEndpoint = profile.baseUrl;
+          cfg.apiKey = profile.apiKey;
+          cfg.customModel = profile.model;
+          document.getElementById("customEndpoint").value = cfg.customEndpoint;
+          document.getElementById("apiKey").value = cfg.apiKey;
+        } else {
           cfg.customEndpoint = CONFIG.getProviderBaseUrl(provider);
           cfg.customModel = CONFIG.getDefaultModel(provider);
+          if (previousProvider === "custom") {
+            cfg.apiKey = "";
+          }
           document.getElementById("customEndpoint").value = cfg.customEndpoint;
+          document.getElementById("apiKey").value = cfg.apiKey;
         }
         await saveConfig(cfg);
         showSaveNotice();
@@ -2182,6 +2410,69 @@ ${dossier}
           tab.click();
         });
       });
+      document.getElementById("fetchModelsBtn").addEventListener("click", async () => {
+        const btn = document.getElementById("fetchModelsBtn");
+        const originalText = btn.textContent;
+        const logTab = UI.panel.querySelector('.smart-feed-tab[data-tab="log"]');
+        if (logTab) {
+          logTab.click();
+          document.getElementById("logContainer").innerHTML = "";
+        }
+        btn.textContent = "\u83B7\u53D6\u4E2D...";
+        btn.disabled = true;
+        const fetchConfig = readApiFormConfig();
+        UI.log("\u{1F50D} \u68C0\u67E5 API Base URL \u548C Key...", "info", "debug");
+        if (!fetchConfig.customEndpoint) {
+          UI.log("\u274C \u68C0\u6D4B\u5230\u7A7A\u7684 API Base URL\uFF01", "error");
+          UI.log("\u{1F4A1} \u8BF7\u5148\u9009\u62E9\u4E00\u4E2A\u9884\u8BBE\uFF0C\u6216\u586B\u5199\u672C\u5730/\u8F6C\u53D1 API \u5730\u5740", "warning");
+          btn.textContent = originalText;
+          btn.disabled = false;
+          return;
+        }
+        if (!fetchConfig.apiKey) {
+          UI.log("\u274C \u68C0\u6D4B\u5230\u7A7A\u7684 API Key\uFF01", "error");
+          UI.log("\u{1F4A1} \u8BF7\u5148\u7C98\u8D34 API Key\uFF0C\u518D\u70B9\u51FB\u201C\u2460 \u83B7\u53D6\u6A21\u578B\u201D", "warning");
+          btn.textContent = originalText;
+          btn.disabled = false;
+          return;
+        }
+        try {
+          UI.log("\u{1F4DA} \u6B63\u5728\u83B7\u53D6\u6A21\u578B\u5217\u8868...", "info");
+          const result = await AIService.fetchModels(fetchConfig);
+          const cfg = loadConfig();
+          if (fetchConfig.apiProvider === "custom") {
+            cfg.apiProvider = "custom";
+            document.getElementById("apiProvider").value = "custom";
+            cfg.customEndpoint = fetchConfig.customEndpoint;
+            cfg.apiKey = fetchConfig.apiKey;
+            cfg.customModel = "";
+            cfg.customApiProfile = {
+              baseUrl: fetchConfig.customEndpoint,
+              apiKey: fetchConfig.apiKey,
+              model: "",
+              modelIds: result.models,
+              fetchedAt: (/* @__PURE__ */ new Date()).toISOString()
+            };
+            updateModelOptions("custom", result.models, "");
+            UI.log("\u2705 \u5DF2\u83B7\u53D6\u6A21\u578B\u5217\u8868\uFF0C\u8BF7\u5148\u5728\u201C\u6A21\u578B\u9009\u62E9\u201D\u4E2D\u9009\u4E00\u4E2A\u6A21\u578B\uFF0C\u518D\u70B9\u201C\u2461 \u6D4B\u8BD5\u8FDE\u63A5\u201D", "success");
+          } else {
+            cfg.apiProvider = fetchConfig.apiProvider;
+            cfg.customEndpoint = CONFIG.getProviderBaseUrl(fetchConfig.apiProvider);
+            cfg.apiKey = fetchConfig.apiKey;
+            cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, "preset");
+            updateModelOptions(fetchConfig.apiProvider, result.models, cfg.customModel);
+            UI.log(`\u2705 \u5DF2\u81EA\u52A8\u9009\u62E9\u6A21\u578B: ${cfg.customModel}`, "success");
+            UI.log("\u{1F4A1} \u4E0B\u4E00\u6B65\uFF1A\u70B9\u51FB\u201C\u2461 \u6D4B\u8BD5\u8FDE\u63A5\u201D", "info");
+          }
+          await saveConfig(cfg);
+          showSaveNotice();
+        } catch (e) {
+          UI.log(`\u274C \u83B7\u53D6\u6A21\u578B\u5931\u8D25: ${e.message}`, "error");
+          UI.log("\u{1F4A1} \u5982\u679C\u4F60\u7684 API \u4E0D\u652F\u6301 /models\uFF0C\u53EF\u4EE5\u624B\u52A8\u586B\u5199\u6A21\u578B\u540D\u79F0\u540E\u76F4\u63A5\u6D4B\u8BD5\u8FDE\u63A5", "warning");
+        }
+        btn.textContent = originalText;
+        btn.disabled = false;
+      });
       document.getElementById("testApiBtn").addEventListener("click", async () => {
         const btn = document.getElementById("testApiBtn");
         const originalText = btn.textContent;
@@ -2192,15 +2483,7 @@ ${dossier}
         }
         btn.textContent = "\u6D4B\u8BD5\u4E2D...";
         btn.disabled = true;
-        const selectedProvider = document.getElementById("apiProvider").value;
-        const apiBaseUrl = document.getElementById("customEndpoint").value.trim();
-        const effectiveProvider = selectedProvider !== "custom" && apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider) ? "custom" : selectedProvider;
-        const testConfig = {
-          apiKey: document.getElementById("apiKey").value.trim(),
-          apiProvider: effectiveProvider,
-          customEndpoint: apiBaseUrl,
-          customModel: document.getElementById("modelSelect").value.trim()
-        };
+        const testConfig = readApiFormConfig();
         UI.log("\u{1F50D} \u6267\u884C\u524D\u7F6E\u68C0\u67E5...", "info", "debug");
         if (!testConfig.apiKey) {
           UI.log("\u274C \u68C0\u6D4B\u5230\u7A7A\u7684 API Key\uFF01", "error");
@@ -2216,6 +2499,13 @@ ${dossier}
           btn.disabled = false;
           return;
         }
+        if (!testConfig.customModel) {
+          UI.log("\u274C \u8FD8\u6CA1\u6709\u9009\u62E9\u6A21\u578B\uFF01", "error");
+          UI.log("\u{1F4A1} \u8BF7\u5148\u70B9\u51FB\u201C\u2460 \u83B7\u53D6\u6A21\u578B\u201D\uFF0C\u7136\u540E\u5728\u201C\u6A21\u578B\u9009\u62E9\u201D\u91CC\u9009\u4E00\u4E2A\u6A21\u578B", "warning");
+          btn.textContent = originalText;
+          btn.disabled = false;
+          return;
+        }
         UI.log("\u2705 \u524D\u7F6E\u68C0\u67E5\u901A\u8FC7\uFF0C\u5F00\u59CB\u6D4B\u8BD5...", "success");
         UI.log("", "info");
         const result = await AIService.testAPI(testConfig);
@@ -2223,6 +2513,15 @@ ${dossier}
           UI.log("", "success");
           UI.log("\u{1F389} \u6D4B\u8BD5\u6210\u529F\uFF01\u53EF\u4EE5\u5F00\u59CB\u4F7F\u7528\u4E86", "success");
           UI.log('\u{1F4A1} \u5982\u9700\u4FEE\u6539\u914D\u7F6E\uFF0C\u8BF7\u5728"\u57FA\u7840\u8BBE\u7F6E"\u6807\u7B7E\u9875\u8C03\u6574', "info");
+          const cfg = loadConfig();
+          cfg.apiProvider = testConfig.apiProvider;
+          cfg.customEndpoint = testConfig.customEndpoint;
+          cfg.apiKey = testConfig.apiKey;
+          cfg.customModel = testConfig.customModel;
+          if (testConfig.apiProvider === "custom") {
+            updateCustomApiProfileFromForm(cfg);
+          }
+          await saveConfig(cfg);
         } else {
           UI.log("", "error");
           UI.log("\u{1F48A} \u6545\u969C\u6392\u67E5\u5EFA\u8BAE:", "warning");
@@ -2280,6 +2579,9 @@ ${dossier}
               syncProviderPresetFromBaseUrl(cfg);
             } else {
               cfg[id] = el.type === "number" ? parseInt(el.value) : el.value;
+            }
+            if (id === "apiKey" && document.getElementById("apiProvider")?.value === "custom") {
+              updateCustomApiProfileFromForm(cfg);
             }
             await saveConfig(cfg);
             showSaveNotice();

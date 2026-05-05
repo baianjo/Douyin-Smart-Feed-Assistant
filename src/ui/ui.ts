@@ -1,4 +1,4 @@
-import { AIService } from '../ai/ai-service';
+import { AIService, chooseDefaultModel, formatModelOptionLabel } from '../ai/ai-service';
 import { CONFIG } from '../config/catalog';
 import { getController } from '../runtime/context';
 import { loadConfig, saveConfig } from '../storage/config-storage';
@@ -278,6 +278,18 @@ const UI = {
                 cursor: pointer;
                 transition: all 0.2s;
                 margin-top: 10px;
+            }
+
+            .smart-feed-action-row {
+                display: flex;
+                gap: 10px;
+                margin-top: 10px;
+            }
+
+            .smart-feed-action-row .smart-feed-button {
+                flex: 1;
+                width: auto;
+                margin-top: 0;
             }
 
             .smart-feed-button-primary {
@@ -636,19 +648,6 @@ const UI = {
                         ⚠️ 本工具可能因抖音更新而失效，遇到问题请及时反馈！
                     </div>
 
-                    <div class="smart-feed-section">
-                        <div class="smart-feed-label">
-                            🔌 API Base URL 预设
-                            <span class="smart-feed-help" title="点击“关于”标签查看详细教程">?</span>
-                        </div>
-                        <select class="smart-feed-select" id="apiProvider">
-                            ${Object.entries(CONFIG.apiProviders).map(([key, provider]) =>
-                                `<option value="${key}">${provider.name}</option>`
-                            ).join('')}
-                            <option value="custom">自定义 OpenAI 兼容 API</option>
-                        </select>
-                    </div>
-
                     <!-- 🆕 重要提示框（可折叠） -->
                     <div class="smart-feed-info-box collapsible-help-box" style="margin-top: 10px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b;">
                         <div class="help-header">
@@ -674,11 +673,11 @@ const UI = {
                                     <tr>
                                         <td style="width: 60px; vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 1</td>
                                         <td>
-                                            <strong>获取 API Key</strong>（注册即可）<br>
+                                            <strong>选择 API 地址并粘贴 Key</strong><br>
                                             <span style="color: #64748b;">
-                                            • 推荐新手选 <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: #2563eb;">DeepSeek</a><br>
-                                            • 无论何种平台，注册后在控制台点"创建 API Key"（确保有余额，1元足矣。初次注册可能会送），复制那串英文<br>
-                                            • 或选 <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color: #2563eb;">智谱GLM</a>（有长期免费模型，但其控制台稍显复杂）
+                                            • 新手推荐先选 <strong>DeepSeek</strong> 或 <strong>GLM</strong><br>
+                                            • 使用本地/转发服务时，选择"<strong>自定义 OpenAI 兼容 API</strong>"并填写 Base URL<br>
+                                            • 把控制台创建的 API Key 粘贴到输入框
                                             </span>
                                         </td>
                                     </tr>
@@ -686,11 +685,11 @@ const UI = {
                                     <tr>
                                         <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 2</td>
                                         <td>
-                                            <strong>填写配置</strong><br>
+                                            <strong>先点"① 获取模型"</strong><br>
                                             <span style="color: #64748b;">
-                                            • 在下方"<strong>API Base URL 预设</strong>"选你刚注册的平台<br>
-                                            • 把复制的 Key 粘贴到"<strong>API Key</strong>"输入框<br>
-                                            • 点击"<strong>🧪 测试连接</strong>"按钮（看到绿色成功提示就对了）
+                                            • 点击下方绿色按钮，脚本会自动读取可用模型<br>
+                                            • 成功后会出现模型列表，预设 API 会自动选一个更省钱的模型<br>
+                                            • 自定义 API 需要你在列表里手动选一个模型
                                             </span>
                                         </td>
                                     </tr>
@@ -698,11 +697,11 @@ const UI = {
                                     <tr>
                                         <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 3</td>
                                         <td>
-                                            <strong>设置偏好</strong><br>
+                                            <strong>再点"② 测试连接"</strong><br>
                                             <span style="color: #64748b;">
-                                            • 新手直接选"<strong>预设模板</strong>"（如"青少年内容引导"）<br>
-                                            • 或者在三个规则框里描述你想看/不想看什么<br>
-                                            • <strong style="color: #dc2626;">滚动到底部点"💾 保存当前配置"</strong>
+                                            • 看到绿色成功提示后，再设置下面的偏好规则<br>
+                                            • 新手直接选"<strong>预设模板</strong>"即可<br>
+                                            • <strong style="color: #dc2626;">最后点"💾 保存当前配置"</strong>
                                             </span>
                                         </td>
                                     </tr>
@@ -725,7 +724,7 @@ const UI = {
                                 <summary style="cursor: pointer; color: #dc2626; font-weight: bold;">❌ 遇到问题？点击查看常见错误</summary>
                                 <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
                                     <strong>Q: 点"测试连接"失败？</strong><br>
-                                    A: ① 检查 Key 前后有没有多余空格 ② 确认选对了提供商 ③ 检查网络能否访问对应网站<br><br>
+                                    A: ① 先点"① 获取模型" ② 检查 Key 前后有没有多余空格 ③ 确认 API Base URL 能访问<br><br>
                     
                                     <strong>Q: 脚本一直显示"无法定位视频"？</strong><br>
                                     A: ① 确认在"推荐"页面 ② 关闭了自动连播 ③ 刷新页面重试<br><br>
@@ -737,26 +736,31 @@ const UI = {
                     
                             <hr style="border: none; border-top: 1px dashed #cbd5e1; margin: 15px 0;">
                     
-                            <!-- 第五部分：进阶说明（折叠） -->
-                            <details style="margin-top: 10px;">
-                                <summary style="cursor: pointer; color: #7c3aed; font-weight: bold;">🔧 进阶：自定义 API 怎么用？</summary>
-                                <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
-                                    如果你用的是第三方转发服务（如 OpenAI 中转）：<br><br>
-                    
-                                    1️⃣ 在"<strong>API Base URL 预设</strong>"选"<strong>自定义 OpenAI 兼容 API</strong>"<br>
-                                    2️⃣ 填写 API Base URL（只需填到域名或 /v1，脚本会自动补全）：<br>
-                                    <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">http://127.0.0.1:8317</code><br>
-                                    3️⃣ 手动输入模型名称（如 <code>gpt-4o-mini</code>）<br><br>
-                    
-                                    <strong style="color: #92400e;">⚠️ 推理/思考模型兼容说明</strong><br>
-                                    脚本不会按具体模型名猜测厂商思考参数；会用短输出提示和最终回答解析来兼容大多数模型。
-                                </div>
-                            </details>
-                    
                             <div style="margin-top: 15px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 12px; text-align: center; color: #7c3aed;">
-                                💡 <strong>小贴士</strong>：第一次使用建议从预设模板开始，熟悉后再自定义规则
+                                💡 <strong>小贴士</strong>：顺序记住就行：填地址和 Key → ① 获取模型 → ② 测试连接
                             </div>
                         </div>
+                    </div>
+
+                    <div class="smart-feed-section">
+                        <div class="smart-feed-label">
+                            🔌 API Base URL 预设
+                            <span class="smart-feed-help" title="点击“关于”标签查看详细教程">?</span>
+                        </div>
+                        <select class="smart-feed-select" id="apiProvider">
+                            ${Object.entries(CONFIG.apiProviders).map(([key, provider]) =>
+                                `<option value="${key}">${provider.name}</option>`
+                            ).join('')}
+                            <option value="custom">自定义 OpenAI 兼容 API</option>
+                        </select>
+                    </div>
+
+                    <div class="smart-feed-section" id="customEndpointSection">
+                        <div class="smart-feed-label">
+                            🌐 API Base URL
+                            <span class="smart-feed-help" title="支持官方、转发、本地 OpenAI 兼容 API">?</span>
+                        </div>
+                        <input type="text" class="smart-feed-input" id="customEndpoint" placeholder="例如 http://127.0.0.1:8317 或 https://api.example.com/v1">
                     </div>
 
                     <div class="smart-feed-section">
@@ -781,34 +785,14 @@ const UI = {
                         </small>
                     </div>
 
-                    <!-- OpenAI 兼容 API Base URL -->
-                    <div class="smart-feed-section" id="customEndpointSection">
-                        <div class="smart-feed-label">
-                            🌐 API Base URL
-                            <span class="smart-feed-help" title="支持官方、转发、本地 OpenAI 兼容 API">?</span>
-                        </div>
-                        <input type="text" class="smart-feed-input" id="customEndpoint" placeholder="例如 http://127.0.0.1:8317 或 https://api.example.com/v1">
-                        <small style="color: #64748b; display: block; margin-top: 5px;">
-                            💡 <strong>填写方式（任选其一）</strong>：<br>
-                            • 本地服务：<code>http://cliproxyapi:8317</code> 或 <code>http://127.0.0.1:8317</code><br>
-                            • 只填域名：<code>https://api.example.com</code><br>
-                            • 填到版本号：<code>https://api.example.com/v1</code><br>
-                            • 填完整路径：<code>https://api.example.com/v1/chat/completions</code><br>
-                            <strong>✅ 脚本会智能补全缺失部分；手动修改后会自动切到自定义模式</strong>
-                        </small>
-
-                        <!-- 🆕 思考模型兼容提示 -->
-                        <div style="background: rgba(254, 243, 199, 0.9); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #92400e;">
-                            <strong>⚠️ 推理/思考模型说明</strong><br>
-                            所有预设和自定义地址都会按 OpenAI 兼容 API 发送请求。<br>
-                            脚本会优先读取最终回答（<code>content</code>），并忽略 <code>reasoning_content</code> / <code>reasoning</code> 等思考过程。<br><br>
-                            <strong>注意</strong>：不同厂商的思考开关变化很快，脚本默认不追踪每个模型的专属参数；如果模型仍然思考，那就由模型或你的转发服务处理，费用也按你的 API 账户结算。
-                        </div>
+                    <div class="smart-feed-action-row">
+                        <button class="smart-feed-button smart-feed-button-primary" id="fetchModelsBtn">
+                            ① 获取模型
+                        </button>
+                        <button class="smart-feed-button smart-feed-button-secondary" id="testApiBtn">
+                            ② 测试连接
+                        </button>
                     </div>
-
-                    <button class="smart-feed-button smart-feed-button-secondary" id="testApiBtn" style="margin-top: 10px;">
-                        🧪 测试连接
-                    </button>
 
                     <div class="smart-feed-section">
                         <div class="smart-feed-label">预设模板</div>
@@ -1049,6 +1033,55 @@ const UI = {
             }, 2000);
         }
 
+        function getModelControlValue() {
+            const modelEl = document.getElementById('modelSelect');
+            return modelEl?.value?.trim() || '';
+        }
+
+        function getCurrentModelIds(fallbackIds = []) {
+            const modelEl = document.getElementById('modelSelect');
+            if (modelEl?.tagName === 'SELECT') {
+                return Array.from((modelEl as HTMLSelectElement).options)
+                    .map(option => option.value)
+                    .filter(Boolean);
+            }
+            return fallbackIds;
+        }
+
+        function updateCustomApiProfileFromForm(cfg, modelIds = null, fetchedAt = null) {
+            const currentProfile = cfg.customApiProfile || CONFIG.defaults.customApiProfile;
+            const customEndpointEl = document.getElementById('customEndpoint');
+            const apiKeyEl = document.getElementById('apiKey');
+
+            cfg.customApiProfile = {
+                baseUrl: customEndpointEl?.value?.trim() || cfg.customEndpoint || currentProfile.baseUrl || '',
+                apiKey: apiKeyEl?.value?.trim() || cfg.apiKey || currentProfile.apiKey || '',
+                model: getModelControlValue() || cfg.customModel || currentProfile.model || '',
+                modelIds: Array.isArray(modelIds) ? modelIds : getCurrentModelIds(currentProfile.modelIds || []),
+                fetchedAt: fetchedAt || currentProfile.fetchedAt || ''
+            };
+
+            cfg.customEndpoint = cfg.customApiProfile.baseUrl;
+            cfg.apiKey = cfg.customApiProfile.apiKey;
+            cfg.customModel = cfg.customApiProfile.model;
+        }
+
+        function readApiFormConfig() {
+            const selectedProvider = document.getElementById('apiProvider').value;
+            const apiBaseUrl = document.getElementById('customEndpoint').value.trim();
+            const effectiveProvider = selectedProvider !== 'custom' &&
+                apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider)
+                ? 'custom'
+                : selectedProvider;
+
+            return {
+                apiKey: document.getElementById('apiKey').value.trim(),
+                apiProvider: effectiveProvider,
+                customEndpoint: apiBaseUrl,
+                customModel: getModelControlValue()
+            };
+        }
+
         function syncProviderPresetFromBaseUrl(cfg) {
             const apiProviderEl = document.getElementById('apiProvider');
             const customEndpointEl = document.getElementById('customEndpoint');
@@ -1066,17 +1099,24 @@ const UI = {
                 apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider)
             ) {
                 cfg.apiProvider = 'custom';
+                cfg.customEndpoint = apiBaseUrl;
+                cfg.apiKey = document.getElementById('apiKey')?.value?.trim() || cfg.apiKey;
+                cfg.customModel = getModelControlValue();
+                updateCustomApiProfileFromForm(cfg);
                 apiProviderEl.value = 'custom';
                 updateModelOptions('custom');
                 return;
             }
 
             cfg.apiProvider = selectedProvider;
+            if (selectedProvider === 'custom') {
+                updateCustomApiProfileFromForm(cfg);
+            }
         }
 
         // 🆕 动态更新模型选项
         // ✅ 动态更新模型选项（从统一配置读取）
-        function updateModelOptions(provider) {
+        function updateModelOptions(provider, modelIdsOverride = null, selectedModelOverride = null) {
             const modelSelect = document.getElementById('modelSelect');
             const modelSection = document.getElementById('modelSection');
 
@@ -1088,18 +1128,22 @@ const UI = {
 
             // ✅ 从统一配置中读取模型列表
             const providerConfig = CONFIG.apiProviders[provider];
-            const options = providerConfig?.models || [];
             const savedConfig = loadConfig();
+            const profile = savedConfig.customApiProfile || CONFIG.defaults.customApiProfile;
+            const overrideIds = Array.isArray(modelIdsOverride) ? modelIdsOverride : null;
+            const isCustom = provider === 'custom';
+            const customModelIds = overrideIds || profile.modelIds || [];
 
-            if (provider === 'custom' || options.length === 0) {
-                // 自定义 API：替换为输入框
+            if (isCustom && customModelIds.length === 0) {
+                // 自定义 API 未获取模型时保留手动输入能力
                 modelSelect.outerHTML = '<input type="text" class="smart-feed-input" id="modelSelect" placeholder="输入模型名称（如 gpt-4o-mini）">';
                 const modelInput = document.getElementById('modelSelect');
                 if (modelInput) {
-                    modelInput.value = savedConfig.customModel || '';
+                    modelInput.value = selectedModelOverride ?? profile.model ?? savedConfig.customModel ?? '';
                     modelInput.addEventListener('blur', async (e) => {
                         const cfg = loadConfig();
                         cfg.customModel = e.target.value.trim();
+                        updateCustomApiProfileFromForm(cfg);
                         await saveConfig(cfg);
                         showSaveNotice();
                     });
@@ -1108,18 +1152,27 @@ const UI = {
                 const smallEl = modelSection.querySelector('small');
                 if (smallEl) smallEl.style.display = 'none';
             } else {
-                // 预设 API：显示下拉选择
-                if (modelSelect.tagName !== 'SELECT') {
-                    modelSelect.outerHTML = '<select class="smart-feed-select" id="modelSelect"></select>';
-                }
+                modelSelect.outerHTML = '<select class="smart-feed-select" id="modelSelect"></select>';
 
                 const newSelect = document.getElementById('modelSelect');
                 if (!newSelect) return;
 
-                // 清空现有选项
-                newSelect.innerHTML = '';
+                const options = isCustom
+                    ? customModelIds.map(id => ({ value: id, label: formatModelOptionLabel(id) }))
+                    : (overrideIds
+                        ? overrideIds.map(id => ({ value: id, label: formatModelOptionLabel(id) }))
+                        : (providerConfig?.models || []).map(opt => ({
+                            value: opt.value,
+                            label: formatModelOptionLabel(opt.value, opt.label)
+                        })));
 
-                // 添加新选项
+                if (isCustom) {
+                    const placeholder = document.createElement('option');
+                    placeholder.value = '';
+                    placeholder.textContent = '<请选择模型>';
+                    newSelect.appendChild(placeholder);
+                }
+
                 options.forEach(opt => {
                     const option = document.createElement('option');
                     option.value = opt.value;
@@ -1127,21 +1180,35 @@ const UI = {
                     newSelect.appendChild(option);
                 });
 
+                if (!isCustom && savedConfig.customModel && !options.find(opt => opt.value === savedConfig.customModel)) {
+                    const option = document.createElement('option');
+                    option.value = savedConfig.customModel;
+                    option.textContent = formatModelOptionLabel(savedConfig.customModel);
+                    newSelect.appendChild(option);
+                }
+
                 const smallEl = modelSection.querySelector('small');
                 if (smallEl) smallEl.style.display = 'block';
 
-                // 恢复之前保存的模型
-                const fallbackModel = providerConfig.defaultModel || options[0]?.value || '';
-                if (savedConfig.customModel && options.find(o => o.value === savedConfig.customModel)) {
-                    newSelect.value = savedConfig.customModel;
-                } else if (fallbackModel) {
-                    newSelect.value = fallbackModel;
+                const fallbackModel = isCustom
+                    ? ''
+                    : (selectedModelOverride ?? savedConfig.customModel ?? providerConfig?.defaultModel ?? options[0]?.value ?? '');
+                const customSelectedModel = selectedModelOverride ?? profile.model ?? '';
+                const selectedModel = isCustom ? customSelectedModel : fallbackModel;
+
+                if (selectedModel && Array.from((newSelect as HTMLSelectElement).options).some(option => option.value === selectedModel)) {
+                    newSelect.value = selectedModel;
+                } else {
+                    newSelect.value = '';
                 }
 
                 // 🆕 绑定保存事件
                 newSelect.addEventListener('change', async (e) => {
                     const cfg = loadConfig();
                     cfg.customModel = e.target.value;
+                    if (document.getElementById('apiProvider')?.value === 'custom') {
+                        updateCustomApiProfileFromForm(cfg);
+                    }
                     await saveConfig(cfg);
                     showSaveNotice();
                 });
@@ -1352,12 +1419,31 @@ const UI = {
         document.getElementById('apiProvider').addEventListener('change', async (e) => {
             const provider = e.target.value;
             const cfg = loadConfig();
+            const previousProvider = cfg.apiProvider;
+
+            if (previousProvider === 'custom') {
+                updateCustomApiProfileFromForm(cfg);
+            }
+
             cfg.apiProvider = provider;
-            if (provider !== 'custom') {
+
+            if (provider === 'custom') {
+                const profile = cfg.customApiProfile || CONFIG.defaults.customApiProfile;
+                cfg.customEndpoint = profile.baseUrl;
+                cfg.apiKey = profile.apiKey;
+                cfg.customModel = profile.model;
+                document.getElementById('customEndpoint').value = cfg.customEndpoint;
+                document.getElementById('apiKey').value = cfg.apiKey;
+            } else {
                 cfg.customEndpoint = CONFIG.getProviderBaseUrl(provider);
                 cfg.customModel = CONFIG.getDefaultModel(provider);
+                if (previousProvider === 'custom') {
+                    cfg.apiKey = '';
+                }
                 document.getElementById('customEndpoint').value = cfg.customEndpoint;
+                document.getElementById('apiKey').value = cfg.apiKey;
             }
+
             await saveConfig(cfg);
             showSaveNotice();
 
@@ -1377,6 +1463,81 @@ const UI = {
             });
         });
 
+        // 获取模型按钮
+        document.getElementById('fetchModelsBtn').addEventListener('click', async () => {
+            const btn = document.getElementById('fetchModelsBtn');
+            const originalText = btn.textContent;
+
+            const logTab = UI.panel.querySelector('.smart-feed-tab[data-tab="log"]');
+            if (logTab) {
+                logTab.click();
+                document.getElementById('logContainer').innerHTML = '';
+            }
+
+            btn.textContent = '获取中...';
+            btn.disabled = true;
+
+            const fetchConfig = readApiFormConfig();
+
+            UI.log('🔍 检查 API Base URL 和 Key...', 'info', 'debug');
+
+            if (!fetchConfig.customEndpoint) {
+                UI.log('❌ 检测到空的 API Base URL！', 'error');
+                UI.log('💡 请先选择一个预设，或填写本地/转发 API 地址', 'warning');
+                btn.textContent = originalText;
+                btn.disabled = false;
+                return;
+            }
+
+            if (!fetchConfig.apiKey) {
+                UI.log('❌ 检测到空的 API Key！', 'error');
+                UI.log('💡 请先粘贴 API Key，再点击“① 获取模型”', 'warning');
+                btn.textContent = originalText;
+                btn.disabled = false;
+                return;
+            }
+
+            try {
+                UI.log('📚 正在获取模型列表...', 'info');
+                const result = await AIService.fetchModels(fetchConfig);
+                const cfg = loadConfig();
+
+                if (fetchConfig.apiProvider === 'custom') {
+                    cfg.apiProvider = 'custom';
+                    document.getElementById('apiProvider').value = 'custom';
+                    cfg.customEndpoint = fetchConfig.customEndpoint;
+                    cfg.apiKey = fetchConfig.apiKey;
+                    cfg.customModel = '';
+                    cfg.customApiProfile = {
+                        baseUrl: fetchConfig.customEndpoint,
+                        apiKey: fetchConfig.apiKey,
+                        model: '',
+                        modelIds: result.models,
+                        fetchedAt: new Date().toISOString()
+                    };
+                    updateModelOptions('custom', result.models, '');
+                    UI.log('✅ 已获取模型列表，请先在“模型选择”中选一个模型，再点“② 测试连接”', 'success');
+                } else {
+                    cfg.apiProvider = fetchConfig.apiProvider;
+                    cfg.customEndpoint = CONFIG.getProviderBaseUrl(fetchConfig.apiProvider);
+                    cfg.apiKey = fetchConfig.apiKey;
+                    cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, 'preset');
+                    updateModelOptions(fetchConfig.apiProvider, result.models, cfg.customModel);
+                    UI.log(`✅ 已自动选择模型: ${cfg.customModel}`, 'success');
+                    UI.log('💡 下一步：点击“② 测试连接”', 'info');
+                }
+
+                await saveConfig(cfg);
+                showSaveNotice();
+            } catch (e) {
+                UI.log(`❌ 获取模型失败: ${e.message}`, 'error');
+                UI.log('💡 如果你的 API 不支持 /models，可以手动填写模型名称后直接测试连接', 'warning');
+            }
+
+            btn.textContent = originalText;
+            btn.disabled = false;
+        });
+
         // 测试API按钮
         document.getElementById('testApiBtn').addEventListener('click', async () => {
             const btn = document.getElementById('testApiBtn');
@@ -1393,20 +1554,7 @@ const UI = {
             btn.textContent = '测试中...';
             btn.disabled = true;
 
-            // 🆕 实时读取当前表单值（不依赖 loadConfig）
-            const selectedProvider = document.getElementById('apiProvider').value;
-            const apiBaseUrl = document.getElementById('customEndpoint').value.trim();
-            const effectiveProvider = selectedProvider !== 'custom' &&
-                apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider)
-                ? 'custom'
-                : selectedProvider;
-
-            const testConfig = {
-                apiKey: document.getElementById('apiKey').value.trim(),
-                apiProvider: effectiveProvider,
-                customEndpoint: apiBaseUrl,
-                customModel: document.getElementById('modelSelect').value.trim()
-            };
+            const testConfig = readApiFormConfig();
 
             // 🆕 详细的前置检查
             UI.log('🔍 执行前置检查...', 'info', 'debug');
@@ -1427,6 +1575,14 @@ const UI = {
                 return;
             }
 
+            if (!testConfig.customModel) {
+                UI.log('❌ 还没有选择模型！', 'error');
+                UI.log('💡 请先点击“① 获取模型”，然后在“模型选择”里选一个模型', 'warning');
+                btn.textContent = originalText;
+                btn.disabled = false;
+                return;
+            }
+
             UI.log('✅ 前置检查通过，开始测试...', 'success');
             UI.log('', 'info');
 
@@ -1437,6 +1593,15 @@ const UI = {
                 UI.log('', 'success');
                 UI.log('🎉 测试成功！可以开始使用了', 'success');
                 UI.log('💡 如需修改配置，请在"基础设置"标签页调整', 'info');
+                const cfg = loadConfig();
+                cfg.apiProvider = testConfig.apiProvider;
+                cfg.customEndpoint = testConfig.customEndpoint;
+                cfg.apiKey = testConfig.apiKey;
+                cfg.customModel = testConfig.customModel;
+                if (testConfig.apiProvider === 'custom') {
+                    updateCustomApiProfileFromForm(cfg);
+                }
+                await saveConfig(cfg);
             } else {
                 UI.log('', 'error');
                 UI.log('💊 故障排查建议:', 'warning');
@@ -1495,6 +1660,10 @@ const UI = {
                         syncProviderPresetFromBaseUrl(cfg);
                     } else {
                         cfg[id] = el.type === 'number' ? parseInt(el.value) : el.value;
+                    }
+
+                    if (id === 'apiKey' && document.getElementById('apiProvider')?.value === 'custom') {
+                        updateCustomApiProfileFromForm(cfg);
                     }
 
                     await saveConfig(cfg);

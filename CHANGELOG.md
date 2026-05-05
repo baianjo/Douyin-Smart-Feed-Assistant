@@ -2,7 +2,10 @@
 
 ## Unreleased
 
-- No unreleased changes.
+## 2.3.0 - 2026-05-06
+
+- Remember the last custom OpenAI-compatible API profile when switching between presets.
+- Add a model fetching flow that reads `/models`, fills the model selector, and guides users to test after selecting a model.
 
 ## 2.2.0 - 2026-05-05
 

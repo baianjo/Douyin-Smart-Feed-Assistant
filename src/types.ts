@@ -22,10 +22,19 @@ export interface DecisionResult {
   reason: string;
 }
 
+export interface CustomApiProfile {
+  baseUrl: string;
+  apiKey: string;
+  model: string;
+  modelIds: string[];
+  fetchedAt: string;
+}
+
 export interface UserConfig {
   apiKey: string;
   customEndpoint: string;
   customModel: string;
+  customApiProfile: CustomApiProfile;
   apiProvider: ApiProviderId;
   judgeMode: 'single' | 'double';
   selectedTemplate: string;

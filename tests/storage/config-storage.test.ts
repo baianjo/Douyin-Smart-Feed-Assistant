@@ -30,6 +30,13 @@ describe('config storage compatibility', () => {
       apiKey: 'key',
       customEndpoint: '',
       customModel: '',
+      customApiProfile: {
+        baseUrl: '',
+        apiKey: '',
+        model: '',
+        modelIds: [],
+        fetchedAt: '',
+      },
       apiProvider: 'deepseek',
       judgeMode: 'single',
       selectedTemplate: '',
@@ -53,5 +60,56 @@ describe('config storage compatibility', () => {
         panelPosition: { x: 12, y: 34 },
       }),
     );
+  });
+
+  it('migrates legacy custom API fields into the custom profile', () => {
+    vi.stubGlobal('GM_getValue', vi.fn(() => ({
+      apiProvider: 'custom',
+      apiKey: 'pwd',
+      customEndpoint: 'http://127.0.0.1:8317',
+      customModel: 'gpt-5.4',
+    })));
+    vi.stubGlobal('GM_deleteValue', vi.fn());
+    vi.stubGlobal('alert', vi.fn());
+
+    const config = loadConfig();
+
+    expect(config.customApiProfile).toMatchObject({
+      baseUrl: 'http://127.0.0.1:8317',
+      apiKey: 'pwd',
+      model: 'gpt-5.4',
+    });
+    expect(config.customEndpoint).toBe('http://127.0.0.1:8317');
+    expect(config.apiKey).toBe('pwd');
+    expect(config.customModel).toBe('gpt-5.4');
+  });
+
+  it('keeps the custom profile when a preset provider is active', () => {
+    vi.stubGlobal('GM_getValue', vi.fn(() => ({
+      apiProvider: 'deepseek',
+      apiKey: 'deepseek-key',
+      customEndpoint: 'https://stale.example.com/v1',
+      customModel: 'deepseek-chat',
+      customApiProfile: {
+        baseUrl: 'http://cliproxyapi:8317',
+        apiKey: 'pwd',
+        model: 'gpt-5.4',
+        modelIds: ['gpt-5.4', '', 'gpt-5.4'],
+        fetchedAt: '2026-05-05T00:00:00.000Z',
+      },
+    })));
+    vi.stubGlobal('GM_deleteValue', vi.fn());
+    vi.stubGlobal('alert', vi.fn());
+
+    const config = loadConfig();
+
+    expect(config.customEndpoint).toBe(CONFIG.getProviderBaseUrl('deepseek'));
+    expect(config.apiKey).toBe('deepseek-key');
+    expect(config.customApiProfile).toMatchObject({
+      baseUrl: 'http://cliproxyapi:8317',
+      apiKey: 'pwd',
+      model: 'gpt-5.4',
+      modelIds: ['gpt-5.4'],
+    });
   });
 });
