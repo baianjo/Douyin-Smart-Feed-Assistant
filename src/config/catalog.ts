@@ -91,20 +91,18 @@ const CONFIG = {
     },
 
     modelLabelNotes: {
-        'gemini-3.1-flash-lite-preview': '2026.5：首选推荐，免费/低成本',
-        'glm-4.7-flash': '2026.5：首选推荐，/models 可能不返回但可正常调用',
+        'gemini-3.1-flash-lite-preview': '2026.5：推荐，免费/低成本',
+        'glm-4.7-flash': '2026.5：推荐，/models 可能不返回但可正常调用',
         'glm-4-flash': '2026.5：免费',
         'qwen-flash': '2026.5：便宜快速'
     },
 
-    // 手工维护的模型选择规则：用于补充 /models 可能不返回但已验证可调用的模型，并覆盖纯成本启发式默认选择。
+    // 手工维护的额外候选：只补充 /models 可能不返回但已验证可调用的模型，默认选择仍由成本启发式决定。
     modelSelectionOverrides: {
         gemini: {
-            preferredModel: 'gemini-3.1-flash-lite-preview',
             extraModelIds: ['gemini-3.1-flash-lite-preview']
         },
         glm: {
-            preferredModel: 'glm-4.7-flash',
             extraModelIds: ['glm-4.7-flash']
         }
     },

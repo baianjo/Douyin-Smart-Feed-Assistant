@@ -54,6 +54,26 @@ describe('AI service compatibility', () => {
     expect(chooseDefaultModel(models, 'custom')).toBe('');
   });
 
+  it('prefers newer versions only within the same low-cost model family', () => {
+    expect(chooseDefaultModel([
+      'gemini-2.0-flash-lite',
+      'gemini-3.1-flash-lite-preview',
+      'gemini-3.5-pro',
+    ], 'preset')).toBe('gemini-3.1-flash-lite-preview');
+
+    expect(chooseDefaultModel([
+      'gemini-2.0-flash-lite',
+      'gemini-3.1-flash-lite-preview',
+      'gemini-3.2-flash-lite',
+    ], 'preset')).toBe('gemini-3.2-flash-lite');
+
+    expect(chooseDefaultModel([
+      'glm-4-flash',
+      'glm-4.7-flash',
+      'glm-4-plus',
+    ], 'preset')).toBe('glm-4.7-flash');
+  });
+
   it('parses JSON decision responses returned by the model', async () => {
     vi.spyOn(AIService, 'callAPI').mockResolvedValue(
       '{"action":"dislike","reason":"contains low quality marketing"}',

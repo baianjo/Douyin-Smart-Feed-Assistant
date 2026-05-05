@@ -218,7 +218,7 @@ API Key 是一串由字母和数字组成的密钥，类似密码，用于向 AI
    - 脚本会调用 OpenAI 兼容的 `/models` 接口读取可用模型
    - 预设 API 会自动选择一个推荐模型
    - 自定义 API 会显示 `<请选择模型>`，请手动选一个模型
-   - 如果模型后面有备注，如 `gemini-3.1-flash-lite-preview（2026.5：首选推荐，免费/低成本）`，优先按备注选择
+   - 如果模型后面有备注，如 `gemini-3.1-flash-lite-preview（2026.5：推荐，免费/低成本）`，说明这是人工维护的展示说明；默认选择仍按成本启发式排序
 5. 再点击 **“② 点击测试连接”**
    - 看到成功提示后，说明 Base URL、API Key、模型三件事都通了
    - 如果失败，先看 **运行日志**，再检查 Base URL、Key 和模型是否匹配
@@ -576,7 +576,7 @@ npm run release:check
 - `baseUrl`
 - `defaultModel`
 - `models`
-- 如 `/models` 不返回某个实际可调用的推荐模型，在 `modelSelectionOverrides` 中补充 `preferredModel` 和 `extraModelIds`
+- 如 `/models` 不返回某个实际可调用的推荐模型，在 `modelSelectionOverrides.extraModelIds` 中补充候选模型；默认选择仍由成本启发式决定
 - 如需展示“推荐、免费、2026.5 仍可用”等人工备注，在 `modelLabelNotes` 中按精确 model id 维护
 
 ### 维护重点 3：保持用户配置兼容

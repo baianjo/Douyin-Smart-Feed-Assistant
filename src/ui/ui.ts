@@ -735,8 +735,8 @@ const UI = {
                             <div style="background: rgba(139, 92, 246, 0.08); border-left: 3px solid #7c3aed; padding: 12px; border-radius: 6px; margin: 15px 0;">
                                 <strong style="color: #6d28d9;">🤖 模型选择小抄</strong><br>
                                 <div style="margin-top: 8px; line-height: 1.8; color: #64748b;">
-                                    • Gemini 当前优先推荐 <code>gemini-3.1-flash-lite-preview</code><br>
-                                    • GLM 当前优先推荐 <code>glm-4.7-flash</code>，即使它有时不出现在"获取模型"结果里，也会手工补到列表中<br>
+                                    • Gemini 当前按成本启发式会倾向 <code>gemini-3.1-flash-lite-preview</code> 这类新版 flash-lite 模型<br>
+                                    • GLM 当前按成本启发式会倾向 <code>glm-4.7-flash</code> 这类新版 flash 模型；如果它不出现在"获取模型"结果里，会手工补到列表中<br>
                                     • 不确定选哪个时，选带"推荐、免费、低成本、flash、lite"备注的模型<br>
                                     • 处理抖音推荐流只需要快速、便宜、稳定的聊天模型，不需要最贵最强的模型
                                 </div>
@@ -967,7 +967,7 @@ const UI = {
                             <p><strong>🤖 模型怎么选</strong></p>
                             <p>• 先点 <strong>① 点击获取模型</strong>，脚本会调用 OpenAI 兼容的 <code>/models</code> 接口读取可用模型。</p>
                             <p>• 预设 API 会自动选推荐模型；自定义 API 不会自动选，会显示 <code>&lt;请选择模型&gt;</code>，需要你手动选择。</p>
-                            <p>• 如果模型后面有备注，例如 <code>gemini-3.1-flash-lite-preview（2026.5：首选推荐，免费/低成本）</code>，说明这是人工维护的推荐项。</p>
+                            <p>• 如果模型后面有备注，例如 <code>gemini-3.1-flash-lite-preview（2026.5：推荐，免费/低成本）</code>，说明这是人工维护的展示说明；默认选择仍按成本启发式排序。</p>
                             <p>• 有些模型能正常调用，但服务商的 <code>/models</code> 不返回；本项目会在配置里手工补充，例如 <code>glm-4.7-flash</code>。</p>
                             <p>• 本工具只做短文本判断，优先选择便宜、快速、稳定的 chat 模型，不需要图像、音频、embedding、rerank 类模型。</p>
 
@@ -1000,7 +1000,7 @@ const UI = {
                             <p>• <strong>统一配置位置</strong>：所有 Base URL 预设集中在 <code>CONFIG.apiProviders</code></p>
                             <p>• <strong>新增预设</strong>：在 <code>apiProviders</code> 中添加一个对象，包含 name、baseUrl、defaultModel、models</p>
                             <p>• <strong>新增模型</strong>：在对应厂商的 <code>models</code> 数组中添加 <code>{ value: 'model-id', label: '显示名称' }</code></p>
-                            <p>• <strong>人工推荐</strong>：在 <code>modelSelectionOverrides</code> 和 <code>modelLabelNotes</code> 里维护推荐模型和备注</p>
+                            <p>• <strong>人工补充</strong>：在 <code>modelSelectionOverrides</code> 里补充 /models 不返回但可调用的候选模型，在 <code>modelLabelNotes</code> 里维护展示备注；默认选择仍由启发式决定</p>
                             <p>• <strong>请求参数策略</strong>：默认只发 OpenAI 兼容的通用字段；厂商专属 thinking 参数不要作为常规适配手段</p>
                             <p>• <strong>无需分散修改</strong>：模型和 Base URL 全部在一个配置对象中</p>
 
@@ -1567,7 +1567,7 @@ const UI = {
                     cfg.apiProvider = fetchConfig.apiProvider;
                     cfg.customEndpoint = CONFIG.getProviderBaseUrl(fetchConfig.apiProvider);
                     cfg.apiKey = fetchConfig.apiKey;
-                    cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, 'preset', fetchConfig.apiProvider);
+                    cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, 'preset');
                     updateModelOptions(fetchConfig.apiProvider, result.models, cfg.customModel);
                     UI.log(`✅ 已自动选择模型: ${cfg.customModel}`, 'success');
                     UI.log('💡 下一步：点击“② 测试连接”', 'info');

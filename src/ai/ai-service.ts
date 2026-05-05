@@ -173,10 +173,7 @@ const getManualModelIdsForProvider = (providerId): string[] => {
         return [];
     }
 
-    return uniqueModelIds([
-        override.preferredModel,
-        ...(Array.isArray(override.extraModelIds) ? override.extraModelIds : [])
-    ]);
+    return uniqueModelIds(Array.isArray(override.extraModelIds) ? override.extraModelIds : []);
 };
 
 const mergeModelIdsWithManualSelections = (modelIds: string[], providerId): string[] => {
@@ -212,26 +209,48 @@ const scoreModelForCost = (modelId: string): number => {
     return score;
 };
 
-const chooseDefaultModel = (modelIds: string[], mode = 'preset', providerId = ''): string => {
+const getModelVersionParts = (modelId: string): number[] => {
+    const versionMatch = modelId.match(/(?:^|[-_/])v?(\d+(?:\.\d+)*)(?=$|[-_/])/i);
+    if (!versionMatch) {
+        return [];
+    }
+
+    return versionMatch[1].split('.').map(part => Number(part));
+};
+
+const compareModelVersionDesc = (a: string, b: string): number => {
+    const aParts = getModelVersionParts(a);
+    const bParts = getModelVersionParts(b);
+    const maxLength = Math.max(aParts.length, bParts.length);
+
+    for (let index = 0; index < maxLength; index += 1) {
+        const aPart = aParts[index] ?? 0;
+        const bPart = bParts[index] ?? 0;
+
+        if (aPart !== bPart) {
+            return bPart - aPart;
+        }
+    }
+
+    return 0;
+};
+
+const chooseDefaultModel = (modelIds: string[], mode = 'preset'): string => {
     if (mode === 'custom' || !Array.isArray(modelIds) || modelIds.length === 0) {
         return '';
     }
 
     const uniqueModels = uniqueModelIds(modelIds);
-    const providerOverride = CONFIG.modelSelectionOverrides?.[providerId];
-    if (providerOverride?.preferredModel && uniqueModels.includes(providerOverride.preferredModel)) {
-        return providerOverride.preferredModel;
-    }
-
-    const providerDefault = CONFIG.apiProviders?.[providerId]?.defaultModel;
-    if (providerDefault && uniqueModels.includes(providerDefault)) {
-        return providerDefault;
-    }
 
     return [...uniqueModels].sort((a, b) => {
         const scoreDiff = scoreModelForCost(a) - scoreModelForCost(b);
         if (scoreDiff !== 0) {
             return scoreDiff;
+        }
+
+        const versionDiff = compareModelVersionDesc(a, b);
+        if (versionDiff !== 0) {
+            return versionDiff;
         }
 
         const lengthDiff = a.length - b.length;
@@ -494,8 +513,7 @@ const AIService = {
 
                         const defaultModel = chooseDefaultModel(
                             models,
-                            config.apiProvider === 'custom' ? 'custom' : 'preset',
-                            config.apiProvider
+                            config.apiProvider === 'custom' ? 'custom' : 'preset'
                         );
 
                         getUI().log(`✅ 成功获取 ${models.length} 个模型`, 'success');

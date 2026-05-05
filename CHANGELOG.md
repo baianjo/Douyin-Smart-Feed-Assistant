@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.3.2 - 2026-05-06
+
+- Keep manually maintained models as extra candidates only; default model selection now remains driven by the cost heuristic.
+- Improve the heuristic tie-break so newer versions win inside the same low-cost family, such as `gemini-3.1-flash-lite-preview` over `gemini-2.0-flash-lite` and future `gemini-3.2-flash-lite` over 3.1.
+- Clarify documentation that model labels are display notes, not selection overrides.
+
 ## 2.3.1 - 2026-05-06
 
 - Prefer manually maintained model recommendations such as `gemini-3.1-flash-lite-preview` and `glm-4.7-flash` over pure low-cost heuristics.

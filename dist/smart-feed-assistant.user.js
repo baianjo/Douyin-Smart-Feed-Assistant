@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.3.1
+// @version      2.3.2
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
@@ -115,19 +115,17 @@
       stream: false
     },
     modelLabelNotes: {
-      "gemini-3.1-flash-lite-preview": "2026.5\uFF1A\u9996\u9009\u63A8\u8350\uFF0C\u514D\u8D39/\u4F4E\u6210\u672C",
-      "glm-4.7-flash": "2026.5\uFF1A\u9996\u9009\u63A8\u8350\uFF0C/models \u53EF\u80FD\u4E0D\u8FD4\u56DE\u4F46\u53EF\u6B63\u5E38\u8C03\u7528",
+      "gemini-3.1-flash-lite-preview": "2026.5\uFF1A\u63A8\u8350\uFF0C\u514D\u8D39/\u4F4E\u6210\u672C",
+      "glm-4.7-flash": "2026.5\uFF1A\u63A8\u8350\uFF0C/models \u53EF\u80FD\u4E0D\u8FD4\u56DE\u4F46\u53EF\u6B63\u5E38\u8C03\u7528",
       "glm-4-flash": "2026.5\uFF1A\u514D\u8D39",
       "qwen-flash": "2026.5\uFF1A\u4FBF\u5B9C\u5FEB\u901F"
     },
-    // 手工维护的模型选择规则：用于补充 /models 可能不返回但已验证可调用的模型，并覆盖纯成本启发式默认选择。
+    // 手工维护的额外候选：只补充 /models 可能不返回但已验证可调用的模型，默认选择仍由成本启发式决定。
     modelSelectionOverrides: {
       gemini: {
-        preferredModel: "gemini-3.1-flash-lite-preview",
         extraModelIds: ["gemini-3.1-flash-lite-preview"]
       },
       glm: {
-        preferredModel: "glm-4.7-flash",
         extraModelIds: ["glm-4.7-flash"]
       }
     },
@@ -397,10 +395,7 @@
     if (!override) {
       return [];
     }
-    return uniqueModelIds([
-      override.preferredModel,
-      ...Array.isArray(override.extraModelIds) ? override.extraModelIds : []
-    ]);
+    return uniqueModelIds(Array.isArray(override.extraModelIds) ? override.extraModelIds : []);
   };
   var mergeModelIdsWithManualSelections = (modelIds, providerId) => {
     if (!providerId || providerId === "custom") {
@@ -429,23 +424,39 @@
     if (id.includes("plus")) score += 150;
     return score;
   };
-  var chooseDefaultModel = (modelIds, mode = "preset", providerId = "") => {
+  var getModelVersionParts = (modelId) => {
+    const versionMatch = modelId.match(/(?:^|[-_/])v?(\d+(?:\.\d+)*)(?=$|[-_/])/i);
+    if (!versionMatch) {
+      return [];
+    }
+    return versionMatch[1].split(".").map((part) => Number(part));
+  };
+  var compareModelVersionDesc = (a, b) => {
+    const aParts = getModelVersionParts(a);
+    const bParts = getModelVersionParts(b);
+    const maxLength = Math.max(aParts.length, bParts.length);
+    for (let index = 0; index < maxLength; index += 1) {
+      const aPart = aParts[index] ?? 0;
+      const bPart = bParts[index] ?? 0;
+      if (aPart !== bPart) {
+        return bPart - aPart;
+      }
+    }
+    return 0;
+  };
+  var chooseDefaultModel = (modelIds, mode = "preset") => {
     if (mode === "custom" || !Array.isArray(modelIds) || modelIds.length === 0) {
       return "";
     }
     const uniqueModels = uniqueModelIds(modelIds);
-    const providerOverride = CONFIG.modelSelectionOverrides?.[providerId];
-    if (providerOverride?.preferredModel && uniqueModels.includes(providerOverride.preferredModel)) {
-      return providerOverride.preferredModel;
-    }
-    const providerDefault = CONFIG.apiProviders?.[providerId]?.defaultModel;
-    if (providerDefault && uniqueModels.includes(providerDefault)) {
-      return providerDefault;
-    }
     return [...uniqueModels].sort((a, b) => {
       const scoreDiff = scoreModelForCost(a) - scoreModelForCost(b);
       if (scoreDiff !== 0) {
         return scoreDiff;
+      }
+      const versionDiff = compareModelVersionDesc(a, b);
+      if (versionDiff !== 0) {
+        return versionDiff;
       }
       const lengthDiff = a.length - b.length;
       if (lengthDiff !== 0) {
@@ -654,8 +665,7 @@
               }
               const defaultModel = chooseDefaultModel(
                 models,
-                config.apiProvider === "custom" ? "custom" : "preset",
-                config.apiProvider
+                config.apiProvider === "custom" ? "custom" : "preset"
               );
               getUI().log(`\u2705 \u6210\u529F\u83B7\u53D6 ${models.length} \u4E2A\u6A21\u578B`, "success");
               resolve({ models, defaultModel });
@@ -1855,8 +1865,8 @@ ${dossier}
                             <div style="background: rgba(139, 92, 246, 0.08); border-left: 3px solid #7c3aed; padding: 12px; border-radius: 6px; margin: 15px 0;">
                                 <strong style="color: #6d28d9;">\u{1F916} \u6A21\u578B\u9009\u62E9\u5C0F\u6284</strong><br>
                                 <div style="margin-top: 8px; line-height: 1.8; color: #64748b;">
-                                    \u2022 Gemini \u5F53\u524D\u4F18\u5148\u63A8\u8350 <code>gemini-3.1-flash-lite-preview</code><br>
-                                    \u2022 GLM \u5F53\u524D\u4F18\u5148\u63A8\u8350 <code>glm-4.7-flash</code>\uFF0C\u5373\u4F7F\u5B83\u6709\u65F6\u4E0D\u51FA\u73B0\u5728"\u83B7\u53D6\u6A21\u578B"\u7ED3\u679C\u91CC\uFF0C\u4E5F\u4F1A\u624B\u5DE5\u8865\u5230\u5217\u8868\u4E2D<br>
+                                    \u2022 Gemini \u5F53\u524D\u6309\u6210\u672C\u542F\u53D1\u5F0F\u4F1A\u503E\u5411 <code>gemini-3.1-flash-lite-preview</code> \u8FD9\u7C7B\u65B0\u7248 flash-lite \u6A21\u578B<br>
+                                    \u2022 GLM \u5F53\u524D\u6309\u6210\u672C\u542F\u53D1\u5F0F\u4F1A\u503E\u5411 <code>glm-4.7-flash</code> \u8FD9\u7C7B\u65B0\u7248 flash \u6A21\u578B\uFF1B\u5982\u679C\u5B83\u4E0D\u51FA\u73B0\u5728"\u83B7\u53D6\u6A21\u578B"\u7ED3\u679C\u91CC\uFF0C\u4F1A\u624B\u5DE5\u8865\u5230\u5217\u8868\u4E2D<br>
                                     \u2022 \u4E0D\u786E\u5B9A\u9009\u54EA\u4E2A\u65F6\uFF0C\u9009\u5E26"\u63A8\u8350\u3001\u514D\u8D39\u3001\u4F4E\u6210\u672C\u3001flash\u3001lite"\u5907\u6CE8\u7684\u6A21\u578B<br>
                                     \u2022 \u5904\u7406\u6296\u97F3\u63A8\u8350\u6D41\u53EA\u9700\u8981\u5FEB\u901F\u3001\u4FBF\u5B9C\u3001\u7A33\u5B9A\u7684\u804A\u5929\u6A21\u578B\uFF0C\u4E0D\u9700\u8981\u6700\u8D35\u6700\u5F3A\u7684\u6A21\u578B
                                 </div>
@@ -2087,7 +2097,7 @@ ${dossier}
                             <p><strong>\u{1F916} \u6A21\u578B\u600E\u4E48\u9009</strong></p>
                             <p>\u2022 \u5148\u70B9 <strong>\u2460 \u70B9\u51FB\u83B7\u53D6\u6A21\u578B</strong>\uFF0C\u811A\u672C\u4F1A\u8C03\u7528 OpenAI \u517C\u5BB9\u7684 <code>/models</code> \u63A5\u53E3\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u3002</p>
                             <p>\u2022 \u9884\u8BBE API \u4F1A\u81EA\u52A8\u9009\u63A8\u8350\u6A21\u578B\uFF1B\u81EA\u5B9A\u4E49 API \u4E0D\u4F1A\u81EA\u52A8\u9009\uFF0C\u4F1A\u663E\u793A <code>&lt;\u8BF7\u9009\u62E9\u6A21\u578B&gt;</code>\uFF0C\u9700\u8981\u4F60\u624B\u52A8\u9009\u62E9\u3002</p>
-                            <p>\u2022 \u5982\u679C\u6A21\u578B\u540E\u9762\u6709\u5907\u6CE8\uFF0C\u4F8B\u5982 <code>gemini-3.1-flash-lite-preview\uFF082026.5\uFF1A\u9996\u9009\u63A8\u8350\uFF0C\u514D\u8D39/\u4F4E\u6210\u672C\uFF09</code>\uFF0C\u8BF4\u660E\u8FD9\u662F\u4EBA\u5DE5\u7EF4\u62A4\u7684\u63A8\u8350\u9879\u3002</p>
+                            <p>\u2022 \u5982\u679C\u6A21\u578B\u540E\u9762\u6709\u5907\u6CE8\uFF0C\u4F8B\u5982 <code>gemini-3.1-flash-lite-preview\uFF082026.5\uFF1A\u63A8\u8350\uFF0C\u514D\u8D39/\u4F4E\u6210\u672C\uFF09</code>\uFF0C\u8BF4\u660E\u8FD9\u662F\u4EBA\u5DE5\u7EF4\u62A4\u7684\u5C55\u793A\u8BF4\u660E\uFF1B\u9ED8\u8BA4\u9009\u62E9\u4ECD\u6309\u6210\u672C\u542F\u53D1\u5F0F\u6392\u5E8F\u3002</p>
                             <p>\u2022 \u6709\u4E9B\u6A21\u578B\u80FD\u6B63\u5E38\u8C03\u7528\uFF0C\u4F46\u670D\u52A1\u5546\u7684 <code>/models</code> \u4E0D\u8FD4\u56DE\uFF1B\u672C\u9879\u76EE\u4F1A\u5728\u914D\u7F6E\u91CC\u624B\u5DE5\u8865\u5145\uFF0C\u4F8B\u5982 <code>glm-4.7-flash</code>\u3002</p>
                             <p>\u2022 \u672C\u5DE5\u5177\u53EA\u505A\u77ED\u6587\u672C\u5224\u65AD\uFF0C\u4F18\u5148\u9009\u62E9\u4FBF\u5B9C\u3001\u5FEB\u901F\u3001\u7A33\u5B9A\u7684 chat \u6A21\u578B\uFF0C\u4E0D\u9700\u8981\u56FE\u50CF\u3001\u97F3\u9891\u3001embedding\u3001rerank \u7C7B\u6A21\u578B\u3002</p>
 
@@ -2120,7 +2130,7 @@ ${dossier}
                             <p>\u2022 <strong>\u7EDF\u4E00\u914D\u7F6E\u4F4D\u7F6E</strong>\uFF1A\u6240\u6709 Base URL \u9884\u8BBE\u96C6\u4E2D\u5728 <code>CONFIG.apiProviders</code></p>
                             <p>\u2022 <strong>\u65B0\u589E\u9884\u8BBE</strong>\uFF1A\u5728 <code>apiProviders</code> \u4E2D\u6DFB\u52A0\u4E00\u4E2A\u5BF9\u8C61\uFF0C\u5305\u542B name\u3001baseUrl\u3001defaultModel\u3001models</p>
                             <p>\u2022 <strong>\u65B0\u589E\u6A21\u578B</strong>\uFF1A\u5728\u5BF9\u5E94\u5382\u5546\u7684 <code>models</code> \u6570\u7EC4\u4E2D\u6DFB\u52A0 <code>{ value: 'model-id', label: '\u663E\u793A\u540D\u79F0' }</code></p>
-                            <p>\u2022 <strong>\u4EBA\u5DE5\u63A8\u8350</strong>\uFF1A\u5728 <code>modelSelectionOverrides</code> \u548C <code>modelLabelNotes</code> \u91CC\u7EF4\u62A4\u63A8\u8350\u6A21\u578B\u548C\u5907\u6CE8</p>
+                            <p>\u2022 <strong>\u4EBA\u5DE5\u8865\u5145</strong>\uFF1A\u5728 <code>modelSelectionOverrides</code> \u91CC\u8865\u5145 /models \u4E0D\u8FD4\u56DE\u4F46\u53EF\u8C03\u7528\u7684\u5019\u9009\u6A21\u578B\uFF0C\u5728 <code>modelLabelNotes</code> \u91CC\u7EF4\u62A4\u5C55\u793A\u5907\u6CE8\uFF1B\u9ED8\u8BA4\u9009\u62E9\u4ECD\u7531\u542F\u53D1\u5F0F\u51B3\u5B9A</p>
                             <p>\u2022 <strong>\u8BF7\u6C42\u53C2\u6570\u7B56\u7565</strong>\uFF1A\u9ED8\u8BA4\u53EA\u53D1 OpenAI \u517C\u5BB9\u7684\u901A\u7528\u5B57\u6BB5\uFF1B\u5382\u5546\u4E13\u5C5E thinking \u53C2\u6570\u4E0D\u8981\u4F5C\u4E3A\u5E38\u89C4\u9002\u914D\u624B\u6BB5</p>
                             <p>\u2022 <strong>\u65E0\u9700\u5206\u6563\u4FEE\u6539</strong>\uFF1A\u6A21\u578B\u548C Base URL \u5168\u90E8\u5728\u4E00\u4E2A\u914D\u7F6E\u5BF9\u8C61\u4E2D</p>
 
@@ -2565,7 +2575,7 @@ ${dossier}
             cfg.apiProvider = fetchConfig.apiProvider;
             cfg.customEndpoint = CONFIG.getProviderBaseUrl(fetchConfig.apiProvider);
             cfg.apiKey = fetchConfig.apiKey;
-            cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, "preset", fetchConfig.apiProvider);
+            cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, "preset");
             updateModelOptions(fetchConfig.apiProvider, result.models, cfg.customModel);
             UI.log(`\u2705 \u5DF2\u81EA\u52A8\u9009\u62E9\u6A21\u578B: ${cfg.customModel}`, "success");
             UI.log("\u{1F4A1} \u4E0B\u4E00\u6B65\uFF1A\u70B9\u51FB\u201C\u2461 \u6D4B\u8BD5\u8FDE\u63A5\u201D", "info");
