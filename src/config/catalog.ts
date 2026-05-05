@@ -91,9 +91,22 @@ const CONFIG = {
     },
 
     modelLabelNotes: {
-        'gemini-3.1-flash-lite-preview': '2026.5：推荐，免费',
+        'gemini-3.1-flash-lite-preview': '2026.5：首选推荐，免费/低成本',
+        'glm-4.7-flash': '2026.5：首选推荐，/models 可能不返回但可正常调用',
         'glm-4-flash': '2026.5：免费',
         'qwen-flash': '2026.5：便宜快速'
+    },
+
+    // 手工维护的模型选择规则：用于补充 /models 可能不返回但已验证可调用的模型，并覆盖纯成本启发式默认选择。
+    modelSelectionOverrides: {
+        gemini: {
+            preferredModel: 'gemini-3.1-flash-lite-preview',
+            extraModelIds: ['gemini-3.1-flash-lite-preview']
+        },
+        glm: {
+            preferredModel: 'glm-4.7-flash',
+            extraModelIds: ['glm-4.7-flash']
+        }
     },
 
     apiProviders: {
@@ -135,8 +148,9 @@ const CONFIG = {
         glm: {
             name: 'GLM / 智谱AI',
             baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-            defaultModel: 'glm-4.6',
+            defaultModel: 'glm-4.7-flash',
             models: [
+                { value: 'glm-4.7-flash', label: 'glm-4.7-flash' },
                 { value: 'glm-4.6', label: 'glm-4.6' },
                 { value: 'glm-4-flash', label: 'glm-4-flash（免费）' }
             ]
@@ -144,8 +158,9 @@ const CONFIG = {
         gemini: {
             name: 'Google / Gemini',
             baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
-            defaultModel: 'gemini-2.5-flash',
+            defaultModel: 'gemini-3.1-flash-lite-preview',
             models: [
+                { value: 'gemini-3.1-flash-lite-preview', label: 'gemini-3.1-flash-lite-preview' },
                 { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
                 { value: 'gemini-3-flash-preview', label: 'gemini-3-flash-preview' },
             ]

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.3.1 - 2026-05-06
+
+- Prefer manually maintained model recommendations such as `gemini-3.1-flash-lite-preview` and `glm-4.7-flash` over pure low-cost heuristics.
+- Restore richer novice setup guidance and expand in-panel usage instructions with API Key links, model fetching, model selection, and troubleshooting steps.
+- Clarify in developer documentation that project docs and UI copy should be freely updated to match real usage and best practices.
+
 ## 2.3.0 - 2026-05-06
 
 - Remember the last custom OpenAI-compatible API profile when switching between presets.

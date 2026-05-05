@@ -146,6 +146,50 @@ const parseModelIds = (data): string[] => {
     return models;
 };
 
+const uniqueModelIds = (modelIds: string[]): string[] => {
+    const seen = new Set<string>();
+    const unique: string[] = [];
+
+    modelIds.forEach(modelId => {
+        if (typeof modelId !== 'string') {
+            return;
+        }
+
+        const trimmed = modelId.trim();
+        if (!trimmed || seen.has(trimmed)) {
+            return;
+        }
+
+        seen.add(trimmed);
+        unique.push(trimmed);
+    });
+
+    return unique;
+};
+
+const getManualModelIdsForProvider = (providerId): string[] => {
+    const override = CONFIG.modelSelectionOverrides?.[providerId];
+    if (!override) {
+        return [];
+    }
+
+    return uniqueModelIds([
+        override.preferredModel,
+        ...(Array.isArray(override.extraModelIds) ? override.extraModelIds : [])
+    ]);
+};
+
+const mergeModelIdsWithManualSelections = (modelIds: string[], providerId): string[] => {
+    if (!providerId || providerId === 'custom') {
+        return uniqueModelIds(modelIds);
+    }
+
+    return uniqueModelIds([
+        ...getManualModelIdsForProvider(providerId),
+        ...modelIds
+    ]);
+};
+
 const scoreModelForCost = (modelId: string): number => {
     const id = modelId.toLowerCase();
     let score = 1000;
@@ -168,12 +212,23 @@ const scoreModelForCost = (modelId: string): number => {
     return score;
 };
 
-const chooseDefaultModel = (modelIds: string[], mode = 'preset'): string => {
+const chooseDefaultModel = (modelIds: string[], mode = 'preset', providerId = ''): string => {
     if (mode === 'custom' || !Array.isArray(modelIds) || modelIds.length === 0) {
         return '';
     }
 
-    return [...modelIds].sort((a, b) => {
+    const uniqueModels = uniqueModelIds(modelIds);
+    const providerOverride = CONFIG.modelSelectionOverrides?.[providerId];
+    if (providerOverride?.preferredModel && uniqueModels.includes(providerOverride.preferredModel)) {
+        return providerOverride.preferredModel;
+    }
+
+    const providerDefault = CONFIG.apiProviders?.[providerId]?.defaultModel;
+    if (providerDefault && uniqueModels.includes(providerDefault)) {
+        return providerDefault;
+    }
+
+    return [...uniqueModels].sort((a, b) => {
         const scoreDiff = scoreModelForCost(a) - scoreModelForCost(b);
         if (scoreDiff !== 0) {
             return scoreDiff;
@@ -427,7 +482,10 @@ const AIService = {
                         }
 
                         const data = JSON.parse(response.responseText);
-                        const models = parseModelIds(data);
+                        const parsedModels = parseModelIds(data);
+                        const models = config.apiProvider === 'custom'
+                            ? parsedModels
+                            : mergeModelIdsWithManualSelections(parsedModels, config.apiProvider);
 
                         if (models.length === 0) {
                             reject(new Error('API 没有返回可用模型，请手动填写模型名称或检查 /models 接口'));
@@ -436,7 +494,8 @@ const AIService = {
 
                         const defaultModel = chooseDefaultModel(
                             models,
-                            config.apiProvider === 'custom' ? 'custom' : 'preset'
+                            config.apiProvider === 'custom' ? 'custom' : 'preset',
+                            config.apiProvider
                         );
 
                         getUI().log(`✅ 成功获取 ${models.length} 个模型`, 'success');

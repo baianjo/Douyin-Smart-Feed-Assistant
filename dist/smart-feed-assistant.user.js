@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.3.0
+// @version      2.3.1
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
@@ -115,9 +115,21 @@
       stream: false
     },
     modelLabelNotes: {
-      "gemini-3.1-flash-lite-preview": "2026.5\uFF1A\u63A8\u8350\uFF0C\u514D\u8D39",
+      "gemini-3.1-flash-lite-preview": "2026.5\uFF1A\u9996\u9009\u63A8\u8350\uFF0C\u514D\u8D39/\u4F4E\u6210\u672C",
+      "glm-4.7-flash": "2026.5\uFF1A\u9996\u9009\u63A8\u8350\uFF0C/models \u53EF\u80FD\u4E0D\u8FD4\u56DE\u4F46\u53EF\u6B63\u5E38\u8C03\u7528",
       "glm-4-flash": "2026.5\uFF1A\u514D\u8D39",
       "qwen-flash": "2026.5\uFF1A\u4FBF\u5B9C\u5FEB\u901F"
+    },
+    // 手工维护的模型选择规则：用于补充 /models 可能不返回但已验证可调用的模型，并覆盖纯成本启发式默认选择。
+    modelSelectionOverrides: {
+      gemini: {
+        preferredModel: "gemini-3.1-flash-lite-preview",
+        extraModelIds: ["gemini-3.1-flash-lite-preview"]
+      },
+      glm: {
+        preferredModel: "glm-4.7-flash",
+        extraModelIds: ["glm-4.7-flash"]
+      }
     },
     apiProviders: {
       gpt: {
@@ -158,8 +170,9 @@
       glm: {
         name: "GLM / \u667A\u8C31AI",
         baseUrl: "https://open.bigmodel.cn/api/paas/v4",
-        defaultModel: "glm-4.6",
+        defaultModel: "glm-4.7-flash",
         models: [
+          { value: "glm-4.7-flash", label: "glm-4.7-flash" },
           { value: "glm-4.6", label: "glm-4.6" },
           { value: "glm-4-flash", label: "glm-4-flash\uFF08\u514D\u8D39\uFF09" }
         ]
@@ -167,8 +180,9 @@
       gemini: {
         name: "Google / Gemini",
         baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
-        defaultModel: "gemini-2.5-flash",
+        defaultModel: "gemini-3.1-flash-lite-preview",
         models: [
+          { value: "gemini-3.1-flash-lite-preview", label: "gemini-3.1-flash-lite-preview" },
           { value: "gemini-2.5-flash", label: "gemini-2.5-flash" },
           { value: "gemini-3-flash-preview", label: "gemini-3-flash-preview" }
         ]
@@ -362,6 +376,41 @@
     });
     return models;
   };
+  var uniqueModelIds = (modelIds) => {
+    const seen = /* @__PURE__ */ new Set();
+    const unique = [];
+    modelIds.forEach((modelId) => {
+      if (typeof modelId !== "string") {
+        return;
+      }
+      const trimmed = modelId.trim();
+      if (!trimmed || seen.has(trimmed)) {
+        return;
+      }
+      seen.add(trimmed);
+      unique.push(trimmed);
+    });
+    return unique;
+  };
+  var getManualModelIdsForProvider = (providerId) => {
+    const override = CONFIG.modelSelectionOverrides?.[providerId];
+    if (!override) {
+      return [];
+    }
+    return uniqueModelIds([
+      override.preferredModel,
+      ...Array.isArray(override.extraModelIds) ? override.extraModelIds : []
+    ]);
+  };
+  var mergeModelIdsWithManualSelections = (modelIds, providerId) => {
+    if (!providerId || providerId === "custom") {
+      return uniqueModelIds(modelIds);
+    }
+    return uniqueModelIds([
+      ...getManualModelIdsForProvider(providerId),
+      ...modelIds
+    ]);
+  };
   var scoreModelForCost = (modelId) => {
     const id = modelId.toLowerCase();
     let score = 1e3;
@@ -380,11 +429,20 @@
     if (id.includes("plus")) score += 150;
     return score;
   };
-  var chooseDefaultModel = (modelIds, mode = "preset") => {
+  var chooseDefaultModel = (modelIds, mode = "preset", providerId = "") => {
     if (mode === "custom" || !Array.isArray(modelIds) || modelIds.length === 0) {
       return "";
     }
-    return [...modelIds].sort((a, b) => {
+    const uniqueModels = uniqueModelIds(modelIds);
+    const providerOverride = CONFIG.modelSelectionOverrides?.[providerId];
+    if (providerOverride?.preferredModel && uniqueModels.includes(providerOverride.preferredModel)) {
+      return providerOverride.preferredModel;
+    }
+    const providerDefault = CONFIG.apiProviders?.[providerId]?.defaultModel;
+    if (providerDefault && uniqueModels.includes(providerDefault)) {
+      return providerDefault;
+    }
+    return [...uniqueModels].sort((a, b) => {
       const scoreDiff = scoreModelForCost(a) - scoreModelForCost(b);
       if (scoreDiff !== 0) {
         return scoreDiff;
@@ -588,14 +646,16 @@
                 return;
               }
               const data = JSON.parse(response.responseText);
-              const models = parseModelIds(data);
+              const parsedModels = parseModelIds(data);
+              const models = config.apiProvider === "custom" ? parsedModels : mergeModelIdsWithManualSelections(parsedModels, config.apiProvider);
               if (models.length === 0) {
                 reject(new Error("API \u6CA1\u6709\u8FD4\u56DE\u53EF\u7528\u6A21\u578B\uFF0C\u8BF7\u624B\u52A8\u586B\u5199\u6A21\u578B\u540D\u79F0\u6216\u68C0\u67E5 /models \u63A5\u53E3"));
                 return;
               }
               const defaultModel = chooseDefaultModel(
                 models,
-                config.apiProvider === "custom" ? "custom" : "preset"
+                config.apiProvider === "custom" ? "custom" : "preset",
+                config.apiProvider
               );
               getUI().log(`\u2705 \u6210\u529F\u83B7\u53D6 ${models.length} \u4E2A\u6A21\u578B`, "success");
               resolve({ models, defaultModel });
@@ -1717,27 +1777,39 @@ ${dossier}
                         <div class="help-content">
                             <!-- \u7B2C\u4E00\u90E8\u5206\uFF1A\u51C6\u5907\u5DE5\u4F5C -->
                             <div style="background: rgba(220, 38, 38, 0.1); border-left: 3px solid #dc2626; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-                                <strong style="color: #dc2626;">\u{1F4CB} \u5F00\u59CB\u524D\u7684\u51C6\u5907\uFF08\u5FC5\u505A\uFF01\uFF09</strong><br>
+                                <strong style="color: #dc2626;">\u{1F4CB} \u7B2C\u4E00\u6B21\u4F7F\u7528\u524D\uFF0C\u5148\u505A\u597D 4 \u4EF6\u4E8B</strong><br>
                                 <div style="margin-top: 8px; line-height: 1.8;">
-                                    \u2611\uFE0F \u6253\u5F00\u6296\u97F3\u7F51\u9875\u7248\uFF1A<a href="https://www.douyin.com/" target="_blank" style="color: #2563eb;">www.douyin.com</a><br>
-                                    \u2611\uFE0F \u70B9\u51FB\u5DE6\u4FA7\u83DC\u5355"<strong>\u63A8\u8350</strong>"\uFF08\u4E0D\u662F"\u7CBE\u9009"\uFF09<br>
-                                    \u2611\uFE0F \u5173\u95ED\u89C6\u9891\u53F3\u4E0B\u89D2\u7684"<strong>\u81EA\u52A8\u8FDE\u64AD</strong>"\uFF08\u5FC5\u987B\u53D8\u6210\u7070\u8272\uFF09<br>
-                                    \u2611\uFE0F \u786E\u4FDD\u6D4F\u89C8\u5668\u6CA1\u6709\u5F00\u542F\u65E0\u75D5\u6A21\u5F0F\uFF08\u5426\u5219\u914D\u7F6E\u65E0\u6CD5\u4FDD\u5B58\uFF09
+                                    1. \u6253\u5F00 <a href="https://www.douyin.com/" target="_blank" style="color: #2563eb;">\u6296\u97F3\u7F51\u9875\u7248</a>\uFF0C\u8FDB\u5165\u5DE6\u4FA7\u83DC\u5355\u7684"<strong>\u63A8\u8350</strong>"\u9875\u9762<br>
+                                    2. \u5173\u95ED\u89C6\u9891\u53F3\u4E0B\u89D2"<strong>\u81EA\u52A8\u8FDE\u64AD</strong>"\uFF0C\u8BA9\u811A\u672C\u53EF\u4EE5\u81EA\u5DF1\u5207\u5230\u4E0B\u4E00\u4E2A\u89C6\u9891<br>
+                                    3. \u4E0D\u8981\u4F7F\u7528\u65E0\u75D5\u6A21\u5F0F\uFF0C\u5426\u5219 API Key\u3001\u89C4\u5219\u548C\u9762\u677F\u4F4D\u7F6E\u53EF\u80FD\u4FDD\u5B58\u4E0D\u4E86<br>
+                                    4. \u51C6\u5907\u4E00\u4E2A API Key\uFF1B\u6CA1\u6709\u7684\u8BDD\u53EF\u4EE5\u70B9\u4E0B\u9762\u94FE\u63A5\u53BB\u521B\u5EFA
+                                </div>
+                            </div>
+
+                            <div style="background: rgba(37, 99, 235, 0.08); border-left: 3px solid #2563eb; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                                <strong style="color: #1d4ed8;">\u{1F511} API Key \u53BB\u54EA\u91CC\u62FF\uFF1F</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8;">
+                                    <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: #2563eb;">DeepSeek API Key</a>\uFF1A\u56FD\u5185\u65B0\u624B\u6700\u5BB9\u6613\u4E0A\u624B<br>
+                                    <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" style="color: #2563eb;">Kimi API Key</a>\uFF1A\u56FD\u5185\u8BBF\u95EE\u7A33\u5B9A<br>
+                                    <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" style="color: #2563eb;">Qwen / \u901A\u4E49\u5343\u95EE API Key</a>\uFF1A\u963F\u91CC\u4E91\u63A7\u5236\u53F0<br>
+                                    <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color: #2563eb;">GLM / \u667A\u8C31 API Key</a>\uFF1AGLM \u6A21\u578B\u63A7\u5236\u53F0<br>
+                                    <a href="https://aistudio.google.com/apikey" target="_blank" style="color: #2563eb;">Google Gemini API Key</a>\uFF1AGemini \u6A21\u578B\u63A7\u5236\u53F0<br>
+                                    <span style="color: #64748b;">API Key \u50CF\u5BC6\u7801\u4E00\u6837\uFF0C\u53EA\u7C98\u8D34\u5230\u672C\u811A\u672C\u91CC\uFF0C\u4E0D\u8981\u53D1\u7ED9\u522B\u4EBA\u3002</span>
                                 </div>
                             </div>
                     
                             <!-- \u7B2C\u4E8C\u90E8\u5206\uFF1A\u914D\u7F6E\u6D41\u7A0B -->
-                            <strong>\u2699\uFE0F \u4E09\u6B65\u5B8C\u6210\u914D\u7F6E</strong><br>
+                            <strong>\u2699\uFE0F \u6309\u987A\u5E8F\u5B8C\u6210 API \u914D\u7F6E</strong><br>
                             <div style="background: rgba(255,255,255,0.7); padding: 12px; border-radius: 8px; margin: 10px 0;">
                                 <table style="width: 100%; font-size: 13px; line-height: 1.8;">
                                     <tr>
-                                        <td style="width: 60px; vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 1</td>
+                                        <td style="width: 72px; vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 1</td>
                                         <td>
-                                            <strong>\u9009\u62E9 API \u5730\u5740\u5E76\u7C98\u8D34 Key</strong><br>
+                                            <strong>\u5148\u9009\u6216\u586B\u5199 API Base URL</strong><br>
                                             <span style="color: #64748b;">
-                                            \u2022 \u65B0\u624B\u63A8\u8350\u5148\u9009 <strong>DeepSeek</strong> \u6216 <strong>GLM</strong><br>
-                                            \u2022 \u4F7F\u7528\u672C\u5730/\u8F6C\u53D1\u670D\u52A1\u65F6\uFF0C\u9009\u62E9"<strong>\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API</strong>"\u5E76\u586B\u5199 Base URL<br>
-                                            \u2022 \u628A\u63A7\u5236\u53F0\u521B\u5EFA\u7684 API Key \u7C98\u8D34\u5230\u8F93\u5165\u6846
+                                            \u2022 \u666E\u901A\u7528\u6237\uFF1A\u5728"API Base URL \u9884\u8BBE"\u91CC\u9009 DeepSeek\u3001GLM\u3001Gemini \u7B49<br>
+                                            \u2022 \u672C\u5730/\u8F6C\u53D1\u670D\u52A1\uFF1A\u9009"<strong>\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API</strong>"\uFF0CBase URL \u53EF\u586B <code>http://127.0.0.1:8317</code><br>
+                                            \u2022 \u5982\u679C\u4F60\u586B\u7684\u662F <code>https://example.com/v1</code>\uFF0C\u811A\u672C\u4F1A\u81EA\u52A8\u62FC\u51FA chat \u548C models \u63A5\u53E3
                                             </span>
                                         </td>
                                     </tr>
@@ -1745,11 +1817,11 @@ ${dossier}
                                     <tr>
                                         <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 2</td>
                                         <td>
-                                            <strong>\u5148\u70B9"\u2460 \u83B7\u53D6\u6A21\u578B"</strong><br>
+                                            <strong>\u7C98\u8D34 API Key</strong><br>
                                             <span style="color: #64748b;">
-                                            \u2022 \u70B9\u51FB\u4E0B\u65B9\u7EFF\u8272\u6309\u94AE\uFF0C\u811A\u672C\u4F1A\u81EA\u52A8\u8BFB\u53D6\u53EF\u7528\u6A21\u578B<br>
-                                            \u2022 \u6210\u529F\u540E\u4F1A\u51FA\u73B0\u6A21\u578B\u5217\u8868\uFF0C\u9884\u8BBE API \u4F1A\u81EA\u52A8\u9009\u4E00\u4E2A\u66F4\u7701\u94B1\u7684\u6A21\u578B<br>
-                                            \u2022 \u81EA\u5B9A\u4E49 API \u9700\u8981\u4F60\u5728\u5217\u8868\u91CC\u624B\u52A8\u9009\u4E00\u4E2A\u6A21\u578B
+                                            \u2022 \u628A\u670D\u52A1\u5546\u63A7\u5236\u53F0\u521B\u5EFA\u7684 Key \u7C98\u8D34\u5230"API Key"\u8F93\u5165\u6846<br>
+                                            \u2022 Key \u524D\u540E\u4E0D\u8981\u591A\u7A7A\u683C\uFF1B\u5982\u679C\u590D\u5236\u9519\u4E86\uFF0C\u6D4B\u8BD5\u8FDE\u63A5\u4F1A\u5931\u8D25<br>
+                                            \u2022 \u672C\u811A\u672C\u53EA\u628A Key \u5B58\u5728\u6D4F\u89C8\u5668\u672C\u5730\uFF0C\u4E0D\u4E0A\u4F20\u5230\u672C\u9879\u76EE\u670D\u52A1\u5668
                                             </span>
                                         </td>
                                     </tr>
@@ -1757,15 +1829,37 @@ ${dossier}
                                     <tr>
                                         <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 3</td>
                                         <td>
+                                            <strong>\u5FC5\u987B\u5148\u70B9"\u2460 \u83B7\u53D6\u6A21\u578B"</strong><br>
+                                            <span style="color: #64748b;">
+                                            \u2022 \u811A\u672C\u4F1A\u8BFB\u53D6\u8FD9\u4E2A API \u80FD\u7528\u7684\u6A21\u578B\uFF0C\u5E76\u5237\u65B0"\u6A21\u578B\u9009\u62E9"\u4E0B\u62C9\u6846<br>
+                                            \u2022 \u9884\u8BBE API \u4F1A\u81EA\u52A8\u9009\u4E00\u4E2A\u63A8\u8350\u6A21\u578B\uFF1B\u81EA\u5B9A\u4E49 API \u4F1A\u505C\u5728 <code>&lt;\u8BF7\u9009\u62E9\u6A21\u578B&gt;</code>\uFF0C\u8BF7\u624B\u52A8\u9009<br>
+                                            \u2022 \u5982\u679C\u770B\u5230\u6A21\u578B\u540E\u9762\u6709"2026.5\uFF1A\u63A8\u8350\uFF0C\u514D\u8D39"\u4E4B\u7C7B\u5907\u6CE8\uFF0C\u4F18\u5148\u9009\u5B83
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
+                                    <tr>
+                                        <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 4</td>
+                                        <td>
                                             <strong>\u518D\u70B9"\u2461 \u6D4B\u8BD5\u8FDE\u63A5"</strong><br>
                                             <span style="color: #64748b;">
-                                            \u2022 \u770B\u5230\u7EFF\u8272\u6210\u529F\u63D0\u793A\u540E\uFF0C\u518D\u8BBE\u7F6E\u4E0B\u9762\u7684\u504F\u597D\u89C4\u5219<br>
-                                            \u2022 \u65B0\u624B\u76F4\u63A5\u9009"<strong>\u9884\u8BBE\u6A21\u677F</strong>"\u5373\u53EF<br>
-                                            \u2022 <strong style="color: #dc2626;">\u6700\u540E\u70B9"\u{1F4BE} \u4FDD\u5B58\u5F53\u524D\u914D\u7F6E"</strong>
+                                            \u2022 \u770B\u5230\u7EFF\u8272\u6210\u529F\u63D0\u793A\u540E\uFF0C\u8BF4\u660E URL\u3001Key\u3001\u6A21\u578B\u4E09\u4EF6\u4E8B\u90FD\u901A\u4E86<br>
+                                            \u2022 \u63A5\u7740\u9009\u62E9"\u9884\u8BBE\u6A21\u677F"\u6216\u586B\u5199\u504F\u597D\u89C4\u5219<br>
+                                            \u2022 <strong style="color: #dc2626;">\u6700\u540E\u70B9"\u{1F4BE} \u4FDD\u5B58\u5F53\u524D\u914D\u7F6E"</strong>\uFF0C\u518D\u70B9\u53F3\u4E0A\u89D2"\u25B6 \u5F00\u59CB"
                                             </span>
                                         </td>
                                     </tr>
                                 </table>
+                            </div>
+
+                            <div style="background: rgba(139, 92, 246, 0.08); border-left: 3px solid #7c3aed; padding: 12px; border-radius: 6px; margin: 15px 0;">
+                                <strong style="color: #6d28d9;">\u{1F916} \u6A21\u578B\u9009\u62E9\u5C0F\u6284</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8; color: #64748b;">
+                                    \u2022 Gemini \u5F53\u524D\u4F18\u5148\u63A8\u8350 <code>gemini-3.1-flash-lite-preview</code><br>
+                                    \u2022 GLM \u5F53\u524D\u4F18\u5148\u63A8\u8350 <code>glm-4.7-flash</code>\uFF0C\u5373\u4F7F\u5B83\u6709\u65F6\u4E0D\u51FA\u73B0\u5728"\u83B7\u53D6\u6A21\u578B"\u7ED3\u679C\u91CC\uFF0C\u4E5F\u4F1A\u624B\u5DE5\u8865\u5230\u5217\u8868\u4E2D<br>
+                                    \u2022 \u4E0D\u786E\u5B9A\u9009\u54EA\u4E2A\u65F6\uFF0C\u9009\u5E26"\u63A8\u8350\u3001\u514D\u8D39\u3001\u4F4E\u6210\u672C\u3001flash\u3001lite"\u5907\u6CE8\u7684\u6A21\u578B<br>
+                                    \u2022 \u5904\u7406\u6296\u97F3\u63A8\u8350\u6D41\u53EA\u9700\u8981\u5FEB\u901F\u3001\u4FBF\u5B9C\u3001\u7A33\u5B9A\u7684\u804A\u5929\u6A21\u578B\uFF0C\u4E0D\u9700\u8981\u6700\u8D35\u6700\u5F3A\u7684\u6A21\u578B
+                                </div>
                             </div>
                     
                             <!-- \u7B2C\u4E09\u90E8\u5206\uFF1A\u5F00\u59CB\u4F7F\u7528 -->
@@ -1784,7 +1878,10 @@ ${dossier}
                                 <summary style="cursor: pointer; color: #dc2626; font-weight: bold;">\u274C \u9047\u5230\u95EE\u9898\uFF1F\u70B9\u51FB\u67E5\u770B\u5E38\u89C1\u9519\u8BEF</summary>
                                 <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
                                     <strong>Q: \u70B9"\u6D4B\u8BD5\u8FDE\u63A5"\u5931\u8D25\uFF1F</strong><br>
-                                    A: \u2460 \u5148\u70B9"\u2460 \u83B7\u53D6\u6A21\u578B" \u2461 \u68C0\u67E5 Key \u524D\u540E\u6709\u6CA1\u6709\u591A\u4F59\u7A7A\u683C \u2462 \u786E\u8BA4 API Base URL \u80FD\u8BBF\u95EE<br><br>
+                                    A: \u2460 \u5148\u70B9"\u2460 \u83B7\u53D6\u6A21\u578B" \u2461 \u9009\u4E2D\u4E00\u4E2A\u6A21\u578B \u2462 \u68C0\u67E5 Key \u524D\u540E\u6709\u6CA1\u6709\u591A\u4F59\u7A7A\u683C \u2463 \u786E\u8BA4 API Base URL \u80FD\u8BBF\u95EE<br><br>
+
+                                    <strong>Q: \u70B9"\u2460 \u83B7\u53D6\u6A21\u578B"\u5931\u8D25\uFF1F</strong><br>
+                                    A: \u8FD9\u4E2A API \u53EF\u80FD\u4E0D\u652F\u6301 /models\u3002\u53EF\u4EE5\u76F4\u63A5\u624B\u52A8\u586B\u5199\u6A21\u578B\u540D\uFF0C\u518D\u70B9"\u2461 \u6D4B\u8BD5\u8FDE\u63A5"\u9A8C\u8BC1\u3002<br><br>
                     
                                     <strong>Q: \u811A\u672C\u4E00\u76F4\u663E\u793A"\u65E0\u6CD5\u5B9A\u4F4D\u89C6\u9891"\uFF1F</strong><br>
                                     A: \u2460 \u786E\u8BA4\u5728"\u63A8\u8350"\u9875\u9762 \u2461 \u5173\u95ED\u4E86\u81EA\u52A8\u8FDE\u64AD \u2462 \u5237\u65B0\u9875\u9762\u91CD\u8BD5<br><br>
@@ -1797,7 +1894,7 @@ ${dossier}
                             <hr style="border: none; border-top: 1px dashed #cbd5e1; margin: 15px 0;">
                     
                             <div style="margin-top: 15px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 12px; text-align: center; color: #7c3aed;">
-                                \u{1F4A1} <strong>\u5C0F\u8D34\u58EB</strong>\uFF1A\u987A\u5E8F\u8BB0\u4F4F\u5C31\u884C\uFF1A\u586B\u5730\u5740\u548C Key \u2192 \u2460 \u83B7\u53D6\u6A21\u578B \u2192 \u2461 \u6D4B\u8BD5\u8FDE\u63A5
+                                \u{1F4A1} <strong>\u5C0F\u8D34\u58EB</strong>\uFF1A\u987A\u5E8F\u8BB0\u4F4F\u5C31\u884C\uFF1ABase URL \u2192 API Key \u2192 \u2460 \u83B7\u53D6\u6A21\u578B \u2192 \u9009\u62E9\u6A21\u578B \u2192 \u2461 \u6D4B\u8BD5\u8FDE\u63A5 \u2192 \u4FDD\u5B58 \u2192 \u5F00\u59CB
                             </div>
                         </div>
                     </div>
@@ -1847,10 +1944,10 @@ ${dossier}
 
                     <div class="smart-feed-action-row">
                         <button class="smart-feed-button smart-feed-button-primary" id="fetchModelsBtn">
-                            \u2460 \u83B7\u53D6\u6A21\u578B
+                            \u2460 \u70B9\u51FB\u83B7\u53D6\u6A21\u578B
                         </button>
                         <button class="smart-feed-button smart-feed-button-secondary" id="testApiBtn">
-                            \u2461 \u6D4B\u8BD5\u8FDE\u63A5
+                            \u2461 \u70B9\u51FB\u6D4B\u8BD5\u8FDE\u63A5
                         </button>
                     </div>
 
@@ -1968,46 +2065,54 @@ ${dossier}
                     <div class="smart-feed-section">
                         <h3 style="margin: 0 0 15px 0; color: #1f2937;">\u{1F4D6} \u4F7F\u7528\u8BF4\u660E</h3>
                         <div style="background: #f8fafc; padding: 15px; border-radius: 10px; font-size: 13px; line-height: 1.8; color: #475569;">
-                            <p><strong>\u26A0\uFE0F \u540E\u53F0\u6302\u673A\u8BF4\u660E\uFF1A</strong></p>
-                            <p>\u2022 \u672C\u811A\u672C<strong>\u9700\u8981\u4FDD\u6301\u6296\u97F3\u6807\u7B7E\u9875\u53EF\u89C1</strong>\uFF08\u4E0D\u80FD\u5207\u6362\u5230\u5176\u4ED6\u6807\u7B7E\u9875\uFF09</p>
-                            <p>\u2022 \u53EF\u4EE5\u6700\u5C0F\u5316\u6D4F\u89C8\u5668\u7A97\u53E3\uFF0C\u4F46\u6296\u97F3\u9875\u9762\u5FC5\u987B\u5728\u5F53\u524D\u6FC0\u6D3B\u7684\u6807\u7B7E</p>
-                            <p>\u2022 \u539F\u56E0\uFF1A\u5FEB\u6377\u952E\u64CD\u4F5C\u548CDOM\u76D1\u542C\u9700\u8981\u9875\u9762\u5904\u4E8E\u6D3B\u8DC3\u72B6\u6001</p>
-                            <p>\u2022 \u5EFA\u8BAE\uFF1A\u4F7F\u7528\u72EC\u7ACB\u6D4F\u89C8\u5668\u7A97\u53E3\u8FD0\u884C\uFF0C\u4E0D\u5F71\u54CD\u5176\u4ED6\u5DE5\u4F5C</p>
+                            <p><strong>\u{1F680} \u96F6\u57FA\u7840\u542F\u52A8\u987A\u5E8F</strong></p>
+                            <p>1. \u6253\u5F00 <a href="https://www.douyin.com/" target="_blank" class="smart-feed-link">\u6296\u97F3\u7F51\u9875\u7248</a>\uFF0C\u8FDB\u5165"\u63A8\u8350"\u9875\u9762\u5E76\u5173\u95ED\u81EA\u52A8\u8FDE\u64AD\u3002</p>
+                            <p>2. \u5728"\u57FA\u7840\u8BBE\u7F6E"\u91CC\u9009\u62E9 API Base URL \u9884\u8BBE\uFF1B\u5982\u679C\u4F60\u7528\u672C\u5730\u4EE3\u7406\u6216\u7B2C\u4E09\u65B9\u8F6C\u53D1\uFF0C\u9009\u62E9"\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API"\u3002</p>
+                            <p>3. \u586B\u5199 API Base URL\uFF0C\u518D\u7C98\u8D34 API Key\u3002</p>
+                            <p>4. \u5148\u70B9 <strong>\u2460 \u70B9\u51FB\u83B7\u53D6\u6A21\u578B</strong>\uFF0C\u7B49\u6A21\u578B\u5217\u8868\u5237\u65B0\u540E\u9009\u62E9\u6A21\u578B\u3002</p>
+                            <p>5. \u518D\u70B9 <strong>\u2461 \u70B9\u51FB\u6D4B\u8BD5\u8FDE\u63A5</strong>\u3002\u6210\u529F\u540E\u9009\u62E9\u9884\u8BBE\u6A21\u677F\u6216\u586B\u5199\u504F\u597D\u89C4\u5219\uFF0C\u4FDD\u5B58\u914D\u7F6E\uFF0C\u6700\u540E\u70B9\u53F3\u4E0A\u89D2"\u25B6 \u5F00\u59CB"\u3002</p>
+
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+
+                            <p><strong>\u{1F511} \u5982\u4F55\u83B7\u53D6 API Key</strong></p>
+                            <p>\u2022 <a href="https://platform.deepseek.com/api_keys" target="_blank" class="smart-feed-link">DeepSeek \u5B98\u7F51</a> - \u65B0\u624B\u5BB9\u6613\u4E0A\u624B\uFF0C\u4EF7\u683C\u4F4E</p>
+                            <p>\u2022 <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" class="smart-feed-link">Kimi \u5B98\u7F51</a> - \u56FD\u5185\u670D\u52A1\uFF0C\u6709\u514D\u8D39\u989D\u5EA6</p>
+                            <p>\u2022 <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" class="smart-feed-link">Qwen \u5B98\u7F51</a> - \u963F\u91CC\u4E91\u901A\u4E49\u5343\u95EE</p>
+                            <p>\u2022 <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" class="smart-feed-link">GLM \u5B98\u7F51</a> - \u667A\u8C31 AI</p>
+                            <p>\u2022 <a href="https://aistudio.google.com/apikey" target="_blank" class="smart-feed-link">Google AI Studio</a> - Gemini API Key</p>
+                            <p>\u2022 \u7B2C\u4E09\u65B9\u8F6C\u53D1\u6216\u672C\u5730\u670D\u52A1\uFF1A\u9009\u62E9"\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API"\uFF0C\u4F8B\u5982 <code>http://127.0.0.1:8317</code></p>
+
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+
+                            <p><strong>\u{1F916} \u6A21\u578B\u600E\u4E48\u9009</strong></p>
+                            <p>\u2022 \u5148\u70B9 <strong>\u2460 \u70B9\u51FB\u83B7\u53D6\u6A21\u578B</strong>\uFF0C\u811A\u672C\u4F1A\u8C03\u7528 OpenAI \u517C\u5BB9\u7684 <code>/models</code> \u63A5\u53E3\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u3002</p>
+                            <p>\u2022 \u9884\u8BBE API \u4F1A\u81EA\u52A8\u9009\u63A8\u8350\u6A21\u578B\uFF1B\u81EA\u5B9A\u4E49 API \u4E0D\u4F1A\u81EA\u52A8\u9009\uFF0C\u4F1A\u663E\u793A <code>&lt;\u8BF7\u9009\u62E9\u6A21\u578B&gt;</code>\uFF0C\u9700\u8981\u4F60\u624B\u52A8\u9009\u62E9\u3002</p>
+                            <p>\u2022 \u5982\u679C\u6A21\u578B\u540E\u9762\u6709\u5907\u6CE8\uFF0C\u4F8B\u5982 <code>gemini-3.1-flash-lite-preview\uFF082026.5\uFF1A\u9996\u9009\u63A8\u8350\uFF0C\u514D\u8D39/\u4F4E\u6210\u672C\uFF09</code>\uFF0C\u8BF4\u660E\u8FD9\u662F\u4EBA\u5DE5\u7EF4\u62A4\u7684\u63A8\u8350\u9879\u3002</p>
+                            <p>\u2022 \u6709\u4E9B\u6A21\u578B\u80FD\u6B63\u5E38\u8C03\u7528\uFF0C\u4F46\u670D\u52A1\u5546\u7684 <code>/models</code> \u4E0D\u8FD4\u56DE\uFF1B\u672C\u9879\u76EE\u4F1A\u5728\u914D\u7F6E\u91CC\u624B\u5DE5\u8865\u5145\uFF0C\u4F8B\u5982 <code>glm-4.7-flash</code>\u3002</p>
+                            <p>\u2022 \u672C\u5DE5\u5177\u53EA\u505A\u77ED\u6587\u672C\u5224\u65AD\uFF0C\u4F18\u5148\u9009\u62E9\u4FBF\u5B9C\u3001\u5FEB\u901F\u3001\u7A33\u5B9A\u7684 chat \u6A21\u578B\uFF0C\u4E0D\u9700\u8981\u56FE\u50CF\u3001\u97F3\u9891\u3001embedding\u3001rerank \u7C7B\u6A21\u578B\u3002</p>
+
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+
+                            <p><strong>\u26A0\uFE0F \u540E\u53F0\u6302\u673A\u8BF4\u660E</strong></p>
+                            <p>\u2022 \u672C\u811A\u672C<strong>\u9700\u8981\u4FDD\u6301\u6296\u97F3\u6807\u7B7E\u9875\u53EF\u89C1</strong>\uFF0C\u4E0D\u8981\u5207\u6362\u5230\u5176\u4ED6\u6D4F\u89C8\u5668\u6807\u7B7E\u9875\u3002</p>
+                            <p>\u2022 \u53EF\u4EE5\u628A\u6D4F\u89C8\u5668\u7A97\u53E3\u653E\u5230\u4E00\u8FB9\uFF0C\u4F46\u6296\u97F3\u9875\u9762\u8981\u4FDD\u6301\u5728\u5F53\u524D\u6FC0\u6D3B\u6807\u7B7E\u3002</p>
+                            <p>\u2022 \u539F\u56E0\uFF1A\u5FEB\u6377\u952E\u64CD\u4F5C\u3001\u89C6\u9891\u5207\u6362\u548C DOM \u76D1\u542C\u90FD\u4F9D\u8D56\u9875\u9762\u5904\u4E8E\u6D3B\u8DC3\u72B6\u6001\u3002</p>
+                            <p>\u2022 \u5EFA\u8BAE\u4F7F\u7528\u72EC\u7ACB\u6D4F\u89C8\u5668\u7A97\u53E3\u8FD0\u884C\uFF0C\u9996\u6B21\u8FD0\u884C 10-15 \u5206\u949F\uFF0C\u89C2\u5BDF\u63A8\u8350\u6D41\u53D8\u5316\u540E\u518D\u8C03\u6574\u89C4\u5219\u3002</p>
 
                             <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>\u2753 \u5E38\u89C1\u95EE\u9898</strong></p>
-
                             <p><strong>Q: \u4EF7\u683C\u5927\u6982\u591A\u5C11\uFF1F</strong></p>
-                            <p>A: \u53D6\u51B3\u4E8E\u4F60\u6240\u9009\u62E9\u7684API\u4F9B\u5E94\u5546\uFF0C\u90E8\u5206\u4F9B\u5E94\u5546\u5B8C\u5168\u53EF\u4EE5\u505A\u5230\u514D\u8D39\uFF0C\u5982\u65B0\u4EBA\u6CE8\u518C\u9001\u5927\u91CF\u9650\u65F6\u989D\u5EA6\u3002Deepseek\u53C2\u8003\u4EF7\u683C\uFF1A1\u5143\u7EA6\u53EF\u4EE5\u5224\u65AD1000\u6B21\u89C6\u9891\u3002</p>
+                            <p>A: \u53D6\u51B3\u4E8E API \u4F9B\u5E94\u5546\u548C\u6A21\u578B\u3002\u90E8\u5206\u5E73\u53F0\u6709\u65B0\u4EBA\u989D\u5EA6\u3001\u514D\u8D39\u6A21\u578B\u6216\u4F4E\u6210\u672C flash/lite \u6A21\u578B\u3002\u5904\u7406\u63A8\u8350\u6D41\u901A\u5E38\u7528\u4FBF\u5B9C\u6A21\u578B\u5C31\u591F\u4E86\u3002</p>
 
-                            <p><strong>Q: \u53EF\u4EE5\u4F7F\u7528 deepseek \u6DF1\u5EA6\u601D\u8003\uFF08\u5982R1\uFF09\u5417\uFF1F</strong></p>
-                            <p>A: \u53EF\u4EE5\u3002\u811A\u672C\u4E0D\u4F1A\u6309\u5177\u4F53\u6A21\u578B\u540D\u7EF4\u62A4\u601D\u8003\u5F00\u5173\uFF0C\u53EA\u4F1A\u7528\u63D0\u793A\u8BCD\u8981\u6C42\u5C11\u8F93\u51FA\u601D\u8003\uFF0C\u5E76\u4F18\u5148\u8BFB\u53D6\u6700\u7EC8\u56DE\u7B54\uFF08content\uFF09\u3002\u5982\u679C\u6A21\u578B\u4ECD\u7136\u601D\u8003\uFF0C\u5C31\u8BA9\u5B83\u601D\u8003\uFF1B\u82E5\u63A5\u53E3\u53EA\u8FD4\u56DE\u601D\u8003\u5185\u5BB9\u800C\u6CA1\u6709\u6700\u7EC8\u56DE\u7B54\uFF0C\u811A\u672C\u4F1A\u63D0\u793A\u201C\u6A21\u578B\u672A\u8FD4\u56DE\u6700\u7EC8\u56DE\u7B54\u201D\u3002</p>
+                            <p><strong>Q: \u53EF\u4EE5\u4F7F\u7528 deepseek \u6DF1\u5EA6\u601D\u8003\u3001R1 \u8FD9\u7C7B\u6A21\u578B\u5417\uFF1F</strong></p>
+                            <p>A: \u53EF\u4EE5\u5C1D\u8BD5\u3002\u811A\u672C\u4F1A\u8981\u6C42\u6A21\u578B\u5C11\u8F93\u51FA\u601D\u8003\uFF0C\u5E76\u4F18\u5148\u8BFB\u53D6\u6700\u7EC8\u56DE\u7B54\u3002\u5982\u679C\u63A5\u53E3\u53EA\u8FD4\u56DE\u601D\u8003\u5185\u5BB9\u800C\u6CA1\u6709\u6700\u7EC8\u56DE\u7B54\uFF0C\u811A\u672C\u4F1A\u63D0\u793A"\u6A21\u578B\u672A\u8FD4\u56DE\u6700\u7EC8\u56DE\u7B54"\u3002\u65E5\u5E38\u4F7F\u7528\u4ECD\u5EFA\u8BAE\u4F18\u5148\u9009\u666E\u901A chat/flash/lite \u6A21\u578B\u3002</p>
 
-                            <p><strong>Q: \u51FA\u73B0 400/422 \u9519\u8BEF\u600E\u4E48\u529E\uFF1F</strong></p>
-                            <p>A: \u68C0\u67E5 API Base URL \u662F\u5426\u6B63\u786E\uFF0C\u6216\u5C1D\u8BD5\u91CD\u65B0\u9009\u62E9\u4E00\u4E2A\u9884\u8BBE\u56DE\u586B\u9ED8\u8BA4\u5730\u5740\u3002</p>
+                            <p><strong>Q: \u70B9"\u2460 \u70B9\u51FB\u83B7\u53D6\u6A21\u578B"\u5931\u8D25\u600E\u4E48\u529E\uFF1F</strong></p>
+                            <p>A: \u68C0\u67E5 Base URL \u548C Key\uFF1B\u5982\u679C\u4F60\u7684 API \u4E0D\u652F\u6301 <code>/models</code>\uFF0C\u53EF\u4EE5\u624B\u52A8\u586B\u5199\u6A21\u578B\u540D\uFF0C\u7136\u540E\u76F4\u63A5\u70B9"\u2461 \u70B9\u51FB\u6D4B\u8BD5\u8FDE\u63A5"\u3002</p>
 
-                            <p><strong>Q: \u81EA\u5B9A\u4E49 API \u652F\u6301\u54EA\u4E9B\u53C2\u6570\uFF1F</strong></p>
-
-                            <p><strong>\u{1F3AF} \u5982\u4F55\u83B7\u53D6 API Key\uFF1A</strong></p>
-                            <p>\u2022 <a href="https://platform.deepseek.com/api_keys" target="_blank" class="smart-feed-link">DeepSeek \u5B98\u7F51</a> - \u4EF7\u683C\u6700\u4FBF\u5B9C\uFF08\u63A8\u8350\uFF09</p>
-                            <p>\u2022 <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" class="smart-feed-link">Kimi \u5B98\u7F51</a> - \u56FD\u5185\u670D\u52A1\uFF0C\u6709\u514D\u8D39\u989D\u5EA6</p>
-                            <p>\u2022 <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" class="smart-feed-link">Qwen \u5B98\u7F51</a> - \u963F\u91CC\u4E91\u901A\u4E49\u5343\u95EE</p>
-                            <p>\u2022 <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" class="smart-feed-link">GLM \u5B98\u7F51</a> - \u667A\u8C31 AI</p>
-                            <p>\u2022 \u7B2C\u4E09\u65B9\u8F6C\u53D1\uFF1A\u5982\u679C\u4F60\u6709\u5176\u4ED6\u517C\u5BB9 OpenAI \u683C\u5F0F\u7684 API\uFF0C\u9009\u62E9"\u81EA\u5B9A\u4E49"</p>
-
-                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
-
-                            <p><strong>\u{1F4DD} \u586B\u5199\u793A\u4F8B\uFF1A</strong></p>
-                            <p><strong>DeepSeek\uFF1A</strong></p>
-                            <p>\u2022 API Key: <code>sk-xxxxxx</code></p>
-                            <p>\u2022 \u6A21\u578B: <code>deepseek-chat</code></p>
-                            <p>\u2022 API \u5730\u5740: \u7559\u7A7A\uFF08\u81EA\u52A8\u4F7F\u7528 <code>https://api.deepseek.com/v1/chat/completions</code>\uFF09</p>
-
-                            <p><strong>\u81EA\u5B9A\u4E49 API\uFF08\u5982\u7B2C\u4E09\u65B9\u8F6C\u53D1\uFF09\uFF1A</strong></p>
-                            <p>\u2022 API Key: <code>\u4F60\u7684Key</code></p>
-                            <p>\u2022 API \u5730\u5740: <code>https://your-api.com/v1</code>\uFF08\u53EA\u9700\u586B\u5230 /v1\uFF0C\u811A\u672C\u4F1A\u81EA\u52A8\u8865\u5168\uFF09</p>
-                            <p>\u2022 \u6A21\u578B: \u624B\u52A8\u8F93\u5165\u6A21\u578B\u540D\u79F0</p>
+                            <p><strong>Q: \u51FA\u73B0 400 / 401 / 422 \u9519\u8BEF\u600E\u4E48\u529E\uFF1F</strong></p>
+                            <p>A: 400/422 \u591A\u534A\u662F Base URL\u3001\u6A21\u578B\u540D\u6216\u8BF7\u6C42\u683C\u5F0F\u4E0D\u5339\u914D\uFF1B401 \u591A\u534A\u662F Key \u9519\u4E86\u3001\u8FC7\u671F\u4E86\u6216\u6CA1\u6743\u9650\u3002\u6309\u987A\u5E8F\u68C0\u67E5\uFF1ABase URL \u2192 API Key \u2192 \u83B7\u53D6\u6A21\u578B \u2192 \u9009\u62E9\u6A21\u578B \u2192 \u6D4B\u8BD5\u8FDE\u63A5\u3002</p>
 
                             <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
@@ -2015,11 +2120,12 @@ ${dossier}
                             <p>\u2022 <strong>\u7EDF\u4E00\u914D\u7F6E\u4F4D\u7F6E</strong>\uFF1A\u6240\u6709 Base URL \u9884\u8BBE\u96C6\u4E2D\u5728 <code>CONFIG.apiProviders</code></p>
                             <p>\u2022 <strong>\u65B0\u589E\u9884\u8BBE</strong>\uFF1A\u5728 <code>apiProviders</code> \u4E2D\u6DFB\u52A0\u4E00\u4E2A\u5BF9\u8C61\uFF0C\u5305\u542B name\u3001baseUrl\u3001defaultModel\u3001models</p>
                             <p>\u2022 <strong>\u65B0\u589E\u6A21\u578B</strong>\uFF1A\u5728\u5BF9\u5E94\u5382\u5546\u7684 <code>models</code> \u6570\u7EC4\u4E2D\u6DFB\u52A0 <code>{ value: 'model-id', label: '\u663E\u793A\u540D\u79F0' }</code></p>
+                            <p>\u2022 <strong>\u4EBA\u5DE5\u63A8\u8350</strong>\uFF1A\u5728 <code>modelSelectionOverrides</code> \u548C <code>modelLabelNotes</code> \u91CC\u7EF4\u62A4\u63A8\u8350\u6A21\u578B\u548C\u5907\u6CE8</p>
                             <p>\u2022 <strong>\u8BF7\u6C42\u53C2\u6570\u7B56\u7565</strong>\uFF1A\u9ED8\u8BA4\u53EA\u53D1 OpenAI \u517C\u5BB9\u7684\u901A\u7528\u5B57\u6BB5\uFF1B\u5382\u5546\u4E13\u5C5E thinking \u53C2\u6570\u4E0D\u8981\u4F5C\u4E3A\u5E38\u89C4\u9002\u914D\u624B\u6BB5</p>
                             <p>\u2022 <strong>\u65E0\u9700\u5206\u6563\u4FEE\u6539</strong>\uFF1A\u6A21\u578B\u548C Base URL \u5168\u90E8\u5728\u4E00\u4E2A\u914D\u7F6E\u5BF9\u8C61\u4E2D</p>
 
                             <p><strong>\u{1F4A1} \u4F7F\u7528\u6280\u5DE7\uFF1A</strong></p>
-                            <p>\u2022 \u9996\u6B21\u4F7F\u7528\u5EFA\u8BAE\u5148\u6D4B\u8BD5\u8FDE\u63A5\uFF0C\u786E\u4FDDAPI\u53EF\u7528</p>
+                            <p>\u2022 \u9996\u6B21\u4F7F\u7528\u5EFA\u8BAE\u5148\u83B7\u53D6\u6A21\u578B\uFF0C\u518D\u6D4B\u8BD5\u8FDE\u63A5\uFF0C\u786E\u4FDD API \u53EF\u7528</p>
                             <p>\u2022 \u8FD0\u884C\u65F6\u957F\u8BBE\u7F6E10-20\u5206\u949F\u5373\u53EF\uFF0C\u907F\u514D\u957F\u65F6\u95F4\u6302\u673A</p>
                         </div>
                     </div>
@@ -2459,7 +2565,7 @@ ${dossier}
             cfg.apiProvider = fetchConfig.apiProvider;
             cfg.customEndpoint = CONFIG.getProviderBaseUrl(fetchConfig.apiProvider);
             cfg.apiKey = fetchConfig.apiKey;
-            cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, "preset");
+            cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, "preset", fetchConfig.apiProvider);
             updateModelOptions(fetchConfig.apiProvider, result.models, cfg.customModel);
             UI.log(`\u2705 \u5DF2\u81EA\u52A8\u9009\u62E9\u6A21\u578B: ${cfg.customModel}`, "success");
             UI.log("\u{1F4A1} \u4E0B\u4E00\u6B65\uFF1A\u70B9\u51FB\u201C\u2461 \u6D4B\u8BD5\u8FDE\u63A5\u201D", "info");

@@ -657,27 +657,39 @@ const UI = {
                         <div class="help-content">
                             <!-- 第一部分：准备工作 -->
                             <div style="background: rgba(220, 38, 38, 0.1); border-left: 3px solid #dc2626; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
-                                <strong style="color: #dc2626;">📋 开始前的准备（必做！）</strong><br>
+                                <strong style="color: #dc2626;">📋 第一次使用前，先做好 4 件事</strong><br>
                                 <div style="margin-top: 8px; line-height: 1.8;">
-                                    ☑️ 打开抖音网页版：<a href="https://www.douyin.com/" target="_blank" style="color: #2563eb;">www.douyin.com</a><br>
-                                    ☑️ 点击左侧菜单"<strong>推荐</strong>"（不是"精选"）<br>
-                                    ☑️ 关闭视频右下角的"<strong>自动连播</strong>"（必须变成灰色）<br>
-                                    ☑️ 确保浏览器没有开启无痕模式（否则配置无法保存）
+                                    1. 打开 <a href="https://www.douyin.com/" target="_blank" style="color: #2563eb;">抖音网页版</a>，进入左侧菜单的"<strong>推荐</strong>"页面<br>
+                                    2. 关闭视频右下角"<strong>自动连播</strong>"，让脚本可以自己切到下一个视频<br>
+                                    3. 不要使用无痕模式，否则 API Key、规则和面板位置可能保存不了<br>
+                                    4. 准备一个 API Key；没有的话可以点下面链接去创建
+                                </div>
+                            </div>
+
+                            <div style="background: rgba(37, 99, 235, 0.08); border-left: 3px solid #2563eb; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                                <strong style="color: #1d4ed8;">🔑 API Key 去哪里拿？</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8;">
+                                    <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: #2563eb;">DeepSeek API Key</a>：国内新手最容易上手<br>
+                                    <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" style="color: #2563eb;">Kimi API Key</a>：国内访问稳定<br>
+                                    <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" style="color: #2563eb;">Qwen / 通义千问 API Key</a>：阿里云控制台<br>
+                                    <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color: #2563eb;">GLM / 智谱 API Key</a>：GLM 模型控制台<br>
+                                    <a href="https://aistudio.google.com/apikey" target="_blank" style="color: #2563eb;">Google Gemini API Key</a>：Gemini 模型控制台<br>
+                                    <span style="color: #64748b;">API Key 像密码一样，只粘贴到本脚本里，不要发给别人。</span>
                                 </div>
                             </div>
                     
                             <!-- 第二部分：配置流程 -->
-                            <strong>⚙️ 三步完成配置</strong><br>
+                            <strong>⚙️ 按顺序完成 API 配置</strong><br>
                             <div style="background: rgba(255,255,255,0.7); padding: 12px; border-radius: 8px; margin: 10px 0;">
                                 <table style="width: 100%; font-size: 13px; line-height: 1.8;">
                                     <tr>
-                                        <td style="width: 60px; vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 1</td>
+                                        <td style="width: 72px; vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 1</td>
                                         <td>
-                                            <strong>选择 API 地址并粘贴 Key</strong><br>
+                                            <strong>先选或填写 API Base URL</strong><br>
                                             <span style="color: #64748b;">
-                                            • 新手推荐先选 <strong>DeepSeek</strong> 或 <strong>GLM</strong><br>
-                                            • 使用本地/转发服务时，选择"<strong>自定义 OpenAI 兼容 API</strong>"并填写 Base URL<br>
-                                            • 把控制台创建的 API Key 粘贴到输入框
+                                            • 普通用户：在"API Base URL 预设"里选 DeepSeek、GLM、Gemini 等<br>
+                                            • 本地/转发服务：选"<strong>自定义 OpenAI 兼容 API</strong>"，Base URL 可填 <code>http://127.0.0.1:8317</code><br>
+                                            • 如果你填的是 <code>https://example.com/v1</code>，脚本会自动拼出 chat 和 models 接口
                                             </span>
                                         </td>
                                     </tr>
@@ -685,11 +697,11 @@ const UI = {
                                     <tr>
                                         <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 2</td>
                                         <td>
-                                            <strong>先点"① 获取模型"</strong><br>
+                                            <strong>粘贴 API Key</strong><br>
                                             <span style="color: #64748b;">
-                                            • 点击下方绿色按钮，脚本会自动读取可用模型<br>
-                                            • 成功后会出现模型列表，预设 API 会自动选一个更省钱的模型<br>
-                                            • 自定义 API 需要你在列表里手动选一个模型
+                                            • 把服务商控制台创建的 Key 粘贴到"API Key"输入框<br>
+                                            • Key 前后不要多空格；如果复制错了，测试连接会失败<br>
+                                            • 本脚本只把 Key 存在浏览器本地，不上传到本项目服务器
                                             </span>
                                         </td>
                                     </tr>
@@ -697,15 +709,37 @@ const UI = {
                                     <tr>
                                         <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 3</td>
                                         <td>
+                                            <strong>必须先点"① 获取模型"</strong><br>
+                                            <span style="color: #64748b;">
+                                            • 脚本会读取这个 API 能用的模型，并刷新"模型选择"下拉框<br>
+                                            • 预设 API 会自动选一个推荐模型；自定义 API 会停在 <code>&lt;请选择模型&gt;</code>，请手动选<br>
+                                            • 如果看到模型后面有"2026.5：推荐，免费"之类备注，优先选它
+                                            </span>
+                                        </td>
+                                    </tr>
+                                    <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
+                                    <tr>
+                                        <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 4</td>
+                                        <td>
                                             <strong>再点"② 测试连接"</strong><br>
                                             <span style="color: #64748b;">
-                                            • 看到绿色成功提示后，再设置下面的偏好规则<br>
-                                            • 新手直接选"<strong>预设模板</strong>"即可<br>
-                                            • <strong style="color: #dc2626;">最后点"💾 保存当前配置"</strong>
+                                            • 看到绿色成功提示后，说明 URL、Key、模型三件事都通了<br>
+                                            • 接着选择"预设模板"或填写偏好规则<br>
+                                            • <strong style="color: #dc2626;">最后点"💾 保存当前配置"</strong>，再点右上角"▶ 开始"
                                             </span>
                                         </td>
                                     </tr>
                                 </table>
+                            </div>
+
+                            <div style="background: rgba(139, 92, 246, 0.08); border-left: 3px solid #7c3aed; padding: 12px; border-radius: 6px; margin: 15px 0;">
+                                <strong style="color: #6d28d9;">🤖 模型选择小抄</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8; color: #64748b;">
+                                    • Gemini 当前优先推荐 <code>gemini-3.1-flash-lite-preview</code><br>
+                                    • GLM 当前优先推荐 <code>glm-4.7-flash</code>，即使它有时不出现在"获取模型"结果里，也会手工补到列表中<br>
+                                    • 不确定选哪个时，选带"推荐、免费、低成本、flash、lite"备注的模型<br>
+                                    • 处理抖音推荐流只需要快速、便宜、稳定的聊天模型，不需要最贵最强的模型
+                                </div>
                             </div>
                     
                             <!-- 第三部分：开始使用 -->
@@ -724,7 +758,10 @@ const UI = {
                                 <summary style="cursor: pointer; color: #dc2626; font-weight: bold;">❌ 遇到问题？点击查看常见错误</summary>
                                 <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
                                     <strong>Q: 点"测试连接"失败？</strong><br>
-                                    A: ① 先点"① 获取模型" ② 检查 Key 前后有没有多余空格 ③ 确认 API Base URL 能访问<br><br>
+                                    A: ① 先点"① 获取模型" ② 选中一个模型 ③ 检查 Key 前后有没有多余空格 ④ 确认 API Base URL 能访问<br><br>
+
+                                    <strong>Q: 点"① 获取模型"失败？</strong><br>
+                                    A: 这个 API 可能不支持 /models。可以直接手动填写模型名，再点"② 测试连接"验证。<br><br>
                     
                                     <strong>Q: 脚本一直显示"无法定位视频"？</strong><br>
                                     A: ① 确认在"推荐"页面 ② 关闭了自动连播 ③ 刷新页面重试<br><br>
@@ -737,7 +774,7 @@ const UI = {
                             <hr style="border: none; border-top: 1px dashed #cbd5e1; margin: 15px 0;">
                     
                             <div style="margin-top: 15px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 12px; text-align: center; color: #7c3aed;">
-                                💡 <strong>小贴士</strong>：顺序记住就行：填地址和 Key → ① 获取模型 → ② 测试连接
+                                💡 <strong>小贴士</strong>：顺序记住就行：Base URL → API Key → ① 获取模型 → 选择模型 → ② 测试连接 → 保存 → 开始
                             </div>
                         </div>
                     </div>
@@ -787,10 +824,10 @@ const UI = {
 
                     <div class="smart-feed-action-row">
                         <button class="smart-feed-button smart-feed-button-primary" id="fetchModelsBtn">
-                            ① 获取模型
+                            ① 点击获取模型
                         </button>
                         <button class="smart-feed-button smart-feed-button-secondary" id="testApiBtn">
-                            ② 测试连接
+                            ② 点击测试连接
                         </button>
                     </div>
 
@@ -908,46 +945,54 @@ const UI = {
                     <div class="smart-feed-section">
                         <h3 style="margin: 0 0 15px 0; color: #1f2937;">📖 使用说明</h3>
                         <div style="background: #f8fafc; padding: 15px; border-radius: 10px; font-size: 13px; line-height: 1.8; color: #475569;">
-                            <p><strong>⚠️ 后台挂机说明：</strong></p>
-                            <p>• 本脚本<strong>需要保持抖音标签页可见</strong>（不能切换到其他标签页）</p>
-                            <p>• 可以最小化浏览器窗口，但抖音页面必须在当前激活的标签</p>
-                            <p>• 原因：快捷键操作和DOM监听需要页面处于活跃状态</p>
-                            <p>• 建议：使用独立浏览器窗口运行，不影响其他工作</p>
+                            <p><strong>🚀 零基础启动顺序</strong></p>
+                            <p>1. 打开 <a href="https://www.douyin.com/" target="_blank" class="smart-feed-link">抖音网页版</a>，进入"推荐"页面并关闭自动连播。</p>
+                            <p>2. 在"基础设置"里选择 API Base URL 预设；如果你用本地代理或第三方转发，选择"自定义 OpenAI 兼容 API"。</p>
+                            <p>3. 填写 API Base URL，再粘贴 API Key。</p>
+                            <p>4. 先点 <strong>① 点击获取模型</strong>，等模型列表刷新后选择模型。</p>
+                            <p>5. 再点 <strong>② 点击测试连接</strong>。成功后选择预设模板或填写偏好规则，保存配置，最后点右上角"▶ 开始"。</p>
+
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+
+                            <p><strong>🔑 如何获取 API Key</strong></p>
+                            <p>• <a href="https://platform.deepseek.com/api_keys" target="_blank" class="smart-feed-link">DeepSeek 官网</a> - 新手容易上手，价格低</p>
+                            <p>• <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" class="smart-feed-link">Kimi 官网</a> - 国内服务，有免费额度</p>
+                            <p>• <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" class="smart-feed-link">Qwen 官网</a> - 阿里云通义千问</p>
+                            <p>• <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" class="smart-feed-link">GLM 官网</a> - 智谱 AI</p>
+                            <p>• <a href="https://aistudio.google.com/apikey" target="_blank" class="smart-feed-link">Google AI Studio</a> - Gemini API Key</p>
+                            <p>• 第三方转发或本地服务：选择"自定义 OpenAI 兼容 API"，例如 <code>http://127.0.0.1:8317</code></p>
+
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+
+                            <p><strong>🤖 模型怎么选</strong></p>
+                            <p>• 先点 <strong>① 点击获取模型</strong>，脚本会调用 OpenAI 兼容的 <code>/models</code> 接口读取可用模型。</p>
+                            <p>• 预设 API 会自动选推荐模型；自定义 API 不会自动选，会显示 <code>&lt;请选择模型&gt;</code>，需要你手动选择。</p>
+                            <p>• 如果模型后面有备注，例如 <code>gemini-3.1-flash-lite-preview（2026.5：首选推荐，免费/低成本）</code>，说明这是人工维护的推荐项。</p>
+                            <p>• 有些模型能正常调用，但服务商的 <code>/models</code> 不返回；本项目会在配置里手工补充，例如 <code>glm-4.7-flash</code>。</p>
+                            <p>• 本工具只做短文本判断，优先选择便宜、快速、稳定的 chat 模型，不需要图像、音频、embedding、rerank 类模型。</p>
+
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
+
+                            <p><strong>⚠️ 后台挂机说明</strong></p>
+                            <p>• 本脚本<strong>需要保持抖音标签页可见</strong>，不要切换到其他浏览器标签页。</p>
+                            <p>• 可以把浏览器窗口放到一边，但抖音页面要保持在当前激活标签。</p>
+                            <p>• 原因：快捷键操作、视频切换和 DOM 监听都依赖页面处于活跃状态。</p>
+                            <p>• 建议使用独立浏览器窗口运行，首次运行 10-15 分钟，观察推荐流变化后再调整规则。</p>
 
                             <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>❓ 常见问题</strong></p>
-
                             <p><strong>Q: 价格大概多少？</strong></p>
-                            <p>A: 取决于你所选择的API供应商，部分供应商完全可以做到免费，如新人注册送大量限时额度。Deepseek参考价格：1元约可以判断1000次视频。</p>
+                            <p>A: 取决于 API 供应商和模型。部分平台有新人额度、免费模型或低成本 flash/lite 模型。处理推荐流通常用便宜模型就够了。</p>
 
-                            <p><strong>Q: 可以使用 deepseek 深度思考（如R1）吗？</strong></p>
-                            <p>A: 可以。脚本不会按具体模型名维护思考开关，只会用提示词要求少输出思考，并优先读取最终回答（content）。如果模型仍然思考，就让它思考；若接口只返回思考内容而没有最终回答，脚本会提示“模型未返回最终回答”。</p>
+                            <p><strong>Q: 可以使用 deepseek 深度思考、R1 这类模型吗？</strong></p>
+                            <p>A: 可以尝试。脚本会要求模型少输出思考，并优先读取最终回答。如果接口只返回思考内容而没有最终回答，脚本会提示"模型未返回最终回答"。日常使用仍建议优先选普通 chat/flash/lite 模型。</p>
 
-                            <p><strong>Q: 出现 400/422 错误怎么办？</strong></p>
-                            <p>A: 检查 API Base URL 是否正确，或尝试重新选择一个预设回填默认地址。</p>
+                            <p><strong>Q: 点"① 点击获取模型"失败怎么办？</strong></p>
+                            <p>A: 检查 Base URL 和 Key；如果你的 API 不支持 <code>/models</code>，可以手动填写模型名，然后直接点"② 点击测试连接"。</p>
 
-                            <p><strong>Q: 自定义 API 支持哪些参数？</strong></p>
-
-                            <p><strong>🎯 如何获取 API Key：</strong></p>
-                            <p>• <a href="https://platform.deepseek.com/api_keys" target="_blank" class="smart-feed-link">DeepSeek 官网</a> - 价格最便宜（推荐）</p>
-                            <p>• <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" class="smart-feed-link">Kimi 官网</a> - 国内服务，有免费额度</p>
-                            <p>• <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" class="smart-feed-link">Qwen 官网</a> - 阿里云通义千问</p>
-                            <p>• <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" class="smart-feed-link">GLM 官网</a> - 智谱 AI</p>
-                            <p>• 第三方转发：如果你有其他兼容 OpenAI 格式的 API，选择"自定义"</p>
-
-                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
-
-                            <p><strong>📝 填写示例：</strong></p>
-                            <p><strong>DeepSeek：</strong></p>
-                            <p>• API Key: <code>sk-xxxxxx</code></p>
-                            <p>• 模型: <code>deepseek-chat</code></p>
-                            <p>• API 地址: 留空（自动使用 <code>https://api.deepseek.com/v1/chat/completions</code>）</p>
-
-                            <p><strong>自定义 API（如第三方转发）：</strong></p>
-                            <p>• API Key: <code>你的Key</code></p>
-                            <p>• API 地址: <code>https://your-api.com/v1</code>（只需填到 /v1，脚本会自动补全）</p>
-                            <p>• 模型: 手动输入模型名称</p>
+                            <p><strong>Q: 出现 400 / 401 / 422 错误怎么办？</strong></p>
+                            <p>A: 400/422 多半是 Base URL、模型名或请求格式不匹配；401 多半是 Key 错了、过期了或没权限。按顺序检查：Base URL → API Key → 获取模型 → 选择模型 → 测试连接。</p>
 
                             <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
@@ -955,11 +1000,12 @@ const UI = {
                             <p>• <strong>统一配置位置</strong>：所有 Base URL 预设集中在 <code>CONFIG.apiProviders</code></p>
                             <p>• <strong>新增预设</strong>：在 <code>apiProviders</code> 中添加一个对象，包含 name、baseUrl、defaultModel、models</p>
                             <p>• <strong>新增模型</strong>：在对应厂商的 <code>models</code> 数组中添加 <code>{ value: 'model-id', label: '显示名称' }</code></p>
+                            <p>• <strong>人工推荐</strong>：在 <code>modelSelectionOverrides</code> 和 <code>modelLabelNotes</code> 里维护推荐模型和备注</p>
                             <p>• <strong>请求参数策略</strong>：默认只发 OpenAI 兼容的通用字段；厂商专属 thinking 参数不要作为常规适配手段</p>
                             <p>• <strong>无需分散修改</strong>：模型和 Base URL 全部在一个配置对象中</p>
 
                             <p><strong>💡 使用技巧：</strong></p>
-                            <p>• 首次使用建议先测试连接，确保API可用</p>
+                            <p>• 首次使用建议先获取模型，再测试连接，确保 API 可用</p>
                             <p>• 运行时长设置10-20分钟即可，避免长时间挂机</p>
                         </div>
                     </div>
@@ -1521,7 +1567,7 @@ const UI = {
                     cfg.apiProvider = fetchConfig.apiProvider;
                     cfg.customEndpoint = CONFIG.getProviderBaseUrl(fetchConfig.apiProvider);
                     cfg.apiKey = fetchConfig.apiKey;
-                    cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, 'preset');
+                    cfg.customModel = result.defaultModel || chooseDefaultModel(result.models, 'preset', fetchConfig.apiProvider);
                     updateModelOptions(fetchConfig.apiProvider, result.models, cfg.customModel);
                     UI.log(`✅ 已自动选择模型: ${cfg.customModel}`, 'success');
                     UI.log('💡 下一步：点击“② 测试连接”', 'info');
