@@ -133,6 +133,11 @@ const loadConfig = () => {
             merged.apiProvider = 'deepseek';
         }
 
+        // 旧版本只有“自定义 API”会使用 customEndpoint；预设模式下统一回填对应 Base URL。
+        if (merged.apiProvider !== 'custom') {
+            merged.customEndpoint = CONFIG.getProviderBaseUrl(merged.apiProvider);
+        }
+
 
         console.log('[智能助手] ✅ 配置加载并验证完成');
         return merged;

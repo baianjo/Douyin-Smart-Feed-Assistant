@@ -638,7 +638,7 @@ const UI = {
 
                     <div class="smart-feed-section">
                         <div class="smart-feed-label">
-                            🔌 API 提供商
+                            🔌 API Base URL 预设
                             <span class="smart-feed-help" title="点击“关于”标签查看详细教程">?</span>
                         </div>
                         <select class="smart-feed-select" id="apiProvider">
@@ -688,7 +688,7 @@ const UI = {
                                         <td>
                                             <strong>填写配置</strong><br>
                                             <span style="color: #64748b;">
-                                            • 在下方"<strong>API 提供商</strong>"选你刚注册的平台<br>
+                                            • 在下方"<strong>API Base URL 预设</strong>"选你刚注册的平台<br>
                                             • 把复制的 Key 粘贴到"<strong>API Key</strong>"输入框<br>
                                             • 点击"<strong>🧪 测试连接</strong>"按钮（看到绿色成功提示就对了）
                                             </span>
@@ -743,9 +743,9 @@ const UI = {
                                 <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
                                     如果你用的是第三方转发服务（如 OpenAI 中转）：<br><br>
                     
-                                    1️⃣ 在"<strong>API 提供商</strong>"选"<strong>自定义 OpenAI 兼容 API</strong>"<br>
-                                    2️⃣ 填写 API 地址（只需填到域名或 /v1，脚本会自动补全）：<br>
-                                    <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">https://api.example.com/v1</code><br>
+                                    1️⃣ 在"<strong>API Base URL 预设</strong>"选"<strong>自定义 OpenAI 兼容 API</strong>"<br>
+                                    2️⃣ 填写 API Base URL（只需填到域名或 /v1，脚本会自动补全）：<br>
+                                    <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">http://127.0.0.1:8317</code><br>
                                     3️⃣ 手动输入模型名称（如 <code>gpt-4o-mini</code>）<br><br>
                     
                                     <strong style="color: #92400e;">⚠️ 推理/思考模型兼容说明</strong><br>
@@ -777,31 +777,32 @@ const UI = {
                             <!-- 由 JavaScript 动态生成 -->
                         </select>
                         <small style="color: #94a3b8; display: block; margin-top: 5px; font-size: 12px;">
-                            ⚙️ 开发者提示：新增模型请修改 <code>CONFIG.apiProviders[厂商].models</code> 数组
+                            ⚙️ 预设只会回填 Base URL 和默认模型；请求始终按 OpenAI 兼容格式发送
                         </small>
                     </div>
 
-                    <!-- 🆕 自定义 API 地址（仅在选择"自定义"时显示） -->
-                    <div class="smart-feed-section" id="customEndpointSection" style="display: none;">
+                    <!-- OpenAI 兼容 API Base URL -->
+                    <div class="smart-feed-section" id="customEndpointSection">
                         <div class="smart-feed-label">
-                            🌐 API 地址
-                            <span class="smart-feed-help" title="仅在使用自定义 API 时填写">?</span>
+                            🌐 API Base URL
+                            <span class="smart-feed-help" title="支持官方、转发、本地 OpenAI 兼容 API">?</span>
                         </div>
-                        <input type="text" class="smart-feed-input" id="customEndpoint" placeholder="留空则使用官方地址">
+                        <input type="text" class="smart-feed-input" id="customEndpoint" placeholder="例如 http://127.0.0.1:8317 或 https://api.example.com/v1">
                         <small style="color: #64748b; display: block; margin-top: 5px;">
                             💡 <strong>填写方式（任选其一）</strong>：<br>
+                            • 本地服务：<code>http://cliproxyapi:8317</code> 或 <code>http://127.0.0.1:8317</code><br>
                             • 只填域名：<code>https://api.example.com</code><br>
                             • 填到版本号：<code>https://api.example.com/v1</code><br>
                             • 填完整路径：<code>https://api.example.com/v1/chat/completions</code><br>
-                            <strong>✅ 脚本会智能补全缺失部分，你填哪种都行</strong>
+                            <strong>✅ 脚本会智能补全缺失部分；手动修改后会自动切到自定义模式</strong>
                         </small>
 
                         <!-- 🆕 思考模型兼容提示 -->
                         <div style="background: rgba(254, 243, 199, 0.9); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #92400e;">
                             <strong>⚠️ 推理/思考模型说明</strong><br>
-                            自定义 API 可以填写带推理/思考能力的模型。<br>
+                            所有预设和自定义地址都会按 OpenAI 兼容 API 发送请求。<br>
                             脚本会优先读取最终回答（<code>content</code>），并忽略 <code>reasoning_content</code> / <code>reasoning</code> 等思考过程。<br><br>
-                            <strong>注意</strong>：不同厂商的思考开关变化很快，脚本默认不追踪每个模型的专属参数；如果模型仍然思考，那就由模型自己处理，费用也按你的 API 账户结算。
+                            <strong>注意</strong>：不同厂商的思考开关变化很快，脚本默认不追踪每个模型的专属参数；如果模型仍然思考，那就由模型或你的转发服务处理，费用也按你的 API 账户结算。
                         </div>
                     </div>
 
@@ -940,7 +941,7 @@ const UI = {
                             <p>A: 可以。脚本不会按具体模型名维护思考开关，只会用提示词要求少输出思考，并优先读取最终回答（content）。如果模型仍然思考，就让它思考；若接口只返回思考内容而没有最终回答，脚本会提示“模型未返回最终回答”。</p>
 
                             <p><strong>Q: 出现 400/422 错误怎么办？</strong></p>
-                            <p>A: 检查 API 地址是否正确，或尝试切换到预设厂商配置。</p>
+                            <p>A: 检查 API Base URL 是否正确，或尝试重新选择一个预设回填默认地址。</p>
 
                             <p><strong>Q: 自定义 API 支持哪些参数？</strong></p>
 
@@ -967,12 +968,11 @@ const UI = {
                             <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>🔧 开发者维护说明</strong></p>
-                            <p>• <strong>统一配置位置</strong>：所有厂商配置集中在 <code>CONFIG.apiProviders</code>（第 145 行）</p>
-                            <p>• <strong>新增厂商</strong>：在 <code>apiProviders</code> 中添加一个对象，包含 name、endpoint、defaultModel、models、requestParams</p>
+                            <p>• <strong>统一配置位置</strong>：所有 Base URL 预设集中在 <code>CONFIG.apiProviders</code></p>
+                            <p>• <strong>新增预设</strong>：在 <code>apiProviders</code> 中添加一个对象，包含 name、baseUrl、defaultModel、models</p>
                             <p>• <strong>新增模型</strong>：在对应厂商的 <code>models</code> 数组中添加 <code>{ value: 'model-id', label: '显示名称' }</code></p>
-                            <p>• <strong>调整请求参数</strong>：修改 <code>requestParams</code>（支持 temperature、max_tokens、stream、extra_body 等）</p>
-                            <p>• <strong>特殊参数策略</strong>：默认只发 OpenAI 兼容的通用字段；厂商专属 thinking 参数不要作为常规适配手段</p>
-                            <p>• <strong>无需分散修改</strong>：模型、端点、参数全部在一个配置对象中</p>
+                            <p>• <strong>请求参数策略</strong>：默认只发 OpenAI 兼容的通用字段；厂商专属 thinking 参数不要作为常规适配手段</p>
+                            <p>• <strong>无需分散修改</strong>：模型和 Base URL 全部在一个配置对象中</p>
 
                             <p><strong>💡 使用技巧：</strong></p>
                             <p>• 首次使用建议先测试连接，确保API可用</p>
@@ -1049,6 +1049,31 @@ const UI = {
             }, 2000);
         }
 
+        function syncProviderPresetFromBaseUrl(cfg) {
+            const apiProviderEl = document.getElementById('apiProvider');
+            const customEndpointEl = document.getElementById('customEndpoint');
+
+            if (!apiProviderEl || !customEndpointEl) {
+                return;
+            }
+
+            const selectedProvider = apiProviderEl.value;
+            const apiBaseUrl = customEndpointEl.value.trim();
+            cfg.customEndpoint = apiBaseUrl;
+
+            if (
+                selectedProvider !== 'custom' &&
+                apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider)
+            ) {
+                cfg.apiProvider = 'custom';
+                apiProviderEl.value = 'custom';
+                updateModelOptions('custom');
+                return;
+            }
+
+            cfg.apiProvider = selectedProvider;
+        }
+
         // 🆕 动态更新模型选项
         // ✅ 动态更新模型选项（从统一配置读取）
         function updateModelOptions(provider) {
@@ -1064,10 +1089,22 @@ const UI = {
             // ✅ 从统一配置中读取模型列表
             const providerConfig = CONFIG.apiProviders[provider];
             const options = providerConfig?.models || [];
+            const savedConfig = loadConfig();
 
             if (provider === 'custom' || options.length === 0) {
                 // 自定义 API：替换为输入框
                 modelSelect.outerHTML = '<input type="text" class="smart-feed-input" id="modelSelect" placeholder="输入模型名称（如 gpt-4o-mini）">';
+                const modelInput = document.getElementById('modelSelect');
+                if (modelInput) {
+                    modelInput.value = savedConfig.customModel || '';
+                    modelInput.addEventListener('blur', async (e) => {
+                        const cfg = loadConfig();
+                        cfg.customModel = e.target.value.trim();
+                        await saveConfig(cfg);
+                        showSaveNotice();
+                    });
+                }
+
                 const smallEl = modelSection.querySelector('small');
                 if (smallEl) smallEl.style.display = 'none';
             } else {
@@ -1094,9 +1131,11 @@ const UI = {
                 if (smallEl) smallEl.style.display = 'block';
 
                 // 恢复之前保存的模型
-                const savedConfig = loadConfig();
+                const fallbackModel = providerConfig.defaultModel || options[0]?.value || '';
                 if (savedConfig.customModel && options.find(o => o.value === savedConfig.customModel)) {
                     newSelect.value = savedConfig.customModel;
+                } else if (fallbackModel) {
+                    newSelect.value = fallbackModel;
                 }
 
                 // 🆕 绑定保存事件
@@ -1124,9 +1163,8 @@ const UI = {
                     const apiProviderEl = document.getElementById('apiProvider');
 
                     if (apiKeyEl) cfg.apiKey = apiKeyEl.value;
-                    if (customEndpointEl) cfg.customEndpoint = customEndpointEl.value;
                     if (modelSelectEl) cfg.customModel = modelSelectEl.value;
-                    if (apiProviderEl) cfg.apiProvider = apiProviderEl.value;
+                    if (apiProviderEl && customEndpointEl) syncProviderPresetFromBaseUrl(cfg);
 
                     cfg.promptLike = document.getElementById('promptLike')?.value || cfg.promptLike;
                     cfg.promptNeutral = document.getElementById('promptNeutral')?.value || cfg.promptNeutral;
@@ -1310,25 +1348,25 @@ const UI = {
             });
         });
 
-        // API提供商切换
+        // API Base URL 预设切换
         document.getElementById('apiProvider').addEventListener('change', async (e) => {
             const provider = e.target.value;
             const cfg = loadConfig();
             cfg.apiProvider = provider;
+            if (provider !== 'custom') {
+                cfg.customEndpoint = CONFIG.getProviderBaseUrl(provider);
+                cfg.customModel = CONFIG.getDefaultModel(provider);
+                document.getElementById('customEndpoint').value = cfg.customEndpoint;
+            }
             await saveConfig(cfg);
             showSaveNotice();
 
             updateModelOptions(provider);
-
-            document.getElementById('customEndpointSection').style.display =
-                provider === 'custom' ? 'block' : 'none';
         });
 
         // 🔧 初始化：生成模型列表（添加延迟确保 DOM 完全准备好）
         setTimeout(() => {
             updateModelOptions(config.apiProvider);
-            document.getElementById('customEndpointSection').style.display =
-                config.apiProvider === 'custom' ? 'block' : 'none';
         }, 100);
 
         // 帮助按钮
@@ -1356,10 +1394,17 @@ const UI = {
             btn.disabled = true;
 
             // 🆕 实时读取当前表单值（不依赖 loadConfig）
+            const selectedProvider = document.getElementById('apiProvider').value;
+            const apiBaseUrl = document.getElementById('customEndpoint').value.trim();
+            const effectiveProvider = selectedProvider !== 'custom' &&
+                apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider)
+                ? 'custom'
+                : selectedProvider;
+
             const testConfig = {
                 apiKey: document.getElementById('apiKey').value.trim(),
-                apiProvider: document.getElementById('apiProvider').value,
-                customEndpoint: document.getElementById('customEndpoint').value.trim(),
+                apiProvider: effectiveProvider,
+                customEndpoint: apiBaseUrl,
                 customModel: document.getElementById('modelSelect').value.trim()
             };
 
@@ -1374,9 +1419,12 @@ const UI = {
                 return;
             }
 
-            if (testConfig.apiProvider === 'custom' && !testConfig.customEndpoint) {
-                UI.log('⚠️ 选择了"自定义 API"但未填写 API 地址', 'warning');
-                UI.log('💡 请填写自定义 API 地址，或切换到预设提供商', 'warning');
+            if (!testConfig.customEndpoint) {
+                UI.log('❌ 检测到空的 API Base URL！', 'error');
+                UI.log('💡 请选择一个预设，或填写本地/转发 API 地址', 'warning');
+                btn.textContent = originalText;
+                btn.disabled = false;
+                return;
             }
 
             UI.log('✅ 前置检查通过，开始测试...', 'success');
@@ -1393,8 +1441,8 @@ const UI = {
                 UI.log('', 'error');
                 UI.log('💊 故障排查建议:', 'warning');
                 UI.log('  1. 检查 API Key 是否正确（注意前后空格）', 'warning');
-                UI.log('  2. 确认选择的提供商和实际 Key 匹配', 'warning');
-                UI.log('  3. 检查网络是否能访问对应 API 地址', 'warning');
+                UI.log('  2. 确认 API Base URL 和实际 Key 匹配', 'warning');
+                UI.log('  3. 检查浏览器是否能访问对应 API 地址', 'warning');
                 UI.log('  4. 查看上方响应体中的具体错误信息', 'warning');
             }
 
@@ -1443,6 +1491,8 @@ const UI = {
                             parseInt(document.getElementById('watchMin').value),
                             parseInt(document.getElementById('watchMax').value)
                         ];
+                    } else if (id === 'customEndpoint') {
+                        syncProviderPresetFromBaseUrl(cfg);
                     } else {
                         cfg[id] = el.type === 'number' ? parseInt(el.value) : el.value;
                     }

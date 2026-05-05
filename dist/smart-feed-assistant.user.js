@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.1.2
+// @version      2.2.0
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
@@ -31,8 +31,8 @@
     defaults: {
       // API设置
       apiKey: "",
-      customEndpoint: "",
-      // 自定义API地址（支持第三方转发）
+      customEndpoint: "https://api.deepseek.com/v1",
+      // OpenAI 兼容 API Base URL（旧字段名，兼容现有 GM 存储）
       customModel: "",
       // 自定义模型名称
       apiProvider: "deepseek",
@@ -94,97 +94,80 @@
         // 当前发现的标签类名
       ]
     },
-    // ⚠️ 开发者维护区域：API 提供商统一配置
+    // ⚠️ 开发者维护区域：OpenAI 兼容 API Base URL 预设
     //
-    // 📌 requestParams 参数说明：
+    // 📌 通用请求参数说明：
     //   - 填写具体值（如 temperature: 0.3）→ 发送到 API
     //   - 注释掉或删除该行 → 不发送，使用 API 默认值
     //   - stream: false 是必填项（禁用流式输出）
     //
-    // 🔧 关于 vendorSpecific（厂商特定参数）：
-    //   • 仅在确认某厂商长期稳定支持、且确有必要时使用
-    //   • ⚠️ 切勿在所有配置中统一添加！原因：
-    //     - 多数 OpenAI 兼容 API 会严格验证参数
-    //     - 遇到未知字段会返回 400/422 错误
-    //     - 模型规则会随时间变化，默认策略应尽量使用 OpenAI 兼容最大公约数
-    //   • 自定义 API 暂不应添加 vendorSpecific
+    // 预设只负责回填 Base URL 和默认模型；实际请求始终走同一套 OpenAI 兼容逻辑。
+    openAICompatibleRequestParams: {
+      temperature: 0.3,
+      max_tokens: 500,
+      stream: false
+    },
     apiProviders: {
+      gpt: {
+        name: "GPT / OpenAI",
+        baseUrl: "https://api.openai.com/v1",
+        defaultModel: "gpt-4o-mini",
+        models: [
+          { value: "gpt-4o-mini", label: "gpt-4o-mini" },
+          { value: "gpt-4o", label: "gpt-4o" }
+        ]
+      },
       deepseek: {
         name: "DeepSeek\uFF08\u63A8\u8350\uFF1A\u6700\u4FBF\u5B9C\uFF09",
-        endpoint: "https://api.deepseek.com/v1/chat/completions",
+        baseUrl: "https://api.deepseek.com/v1",
         defaultModel: "deepseek-chat",
         models: [
           { value: "deepseek-chat", label: "deepseek-chat (V3.2\u63A8\u8350)" }
-        ],
-        requestParams: {
-          temperature: 0.3,
-          // 可选：删除此行则使用 API 默认值
-          max_tokens: 500,
-          // 可选：删除此行则使用 API 默认值
-          stream: false
-          // 必填：禁用流式输出
-        }
+        ]
       },
       kimi: {
         name: "Kimi / \u6708\u4E4B\u6697\u9762",
-        endpoint: "https://api.moonshot.cn/v1/chat/completions",
+        baseUrl: "https://api.moonshot.cn/v1",
         defaultModel: "kimi-k2-0905-preview",
         models: [
           { value: "kimi-k2-0905-preview", label: "kimi-k2-0905-preview" }
-        ],
-        requestParams: {
-          temperature: 0.3,
-          max_tokens: 500,
-          stream: false
-        }
+        ]
       },
       qwen: {
         name: "Qwen / \u901A\u4E49\u5343\u95EE",
-        endpoint: "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+        baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1",
         defaultModel: "qwen-flash",
         models: [
           { value: "qwen-max", label: "qwen-max\uFF08\u6700\u5F3A\uFF09" },
           { value: "qwen-plus", label: "qwen-plus\uFF08\u63A8\u8350\uFF09" },
           { value: "qwen-flash", label: "qwen-flash\uFF08\u5FEB\u901F\uFF09" }
-        ],
-        requestParams: {
-          temperature: 0.3,
-          max_tokens: 500,
-          stream: false
-        }
+        ]
       },
       glm: {
         name: "GLM / \u667A\u8C31AI",
-        endpoint: "https://open.bigmodel.cn/api/paas/v4/chat/completions",
+        baseUrl: "https://open.bigmodel.cn/api/paas/v4",
         defaultModel: "glm-4.6",
         models: [
           { value: "glm-4.6", label: "glm-4.6" },
           { value: "glm-4-flash", label: "glm-4-flash\uFF08\u514D\u8D39\uFF09" }
-        ],
-        requestParams: {
-          temperature: 0.3,
-          max_tokens: 500,
-          stream: false
-        }
+        ]
       },
       gemini: {
-        name: "Gemini / Google AI Studio",
-        endpoint: "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        name: "Google / Gemini",
+        baseUrl: "https://generativelanguage.googleapis.com/v1beta/openai",
         defaultModel: "gemini-2.5-flash",
         models: [
           { value: "gemini-2.5-flash", label: "gemini-2.5-flash" },
           { value: "gemini-3-flash-preview", label: "gemini-3-flash-preview" }
-        ],
-        requestParams: {
-          temperature: 0.3,
-          max_tokens: 500,
-          stream: false
-        }
+        ]
       }
     },
     // ✅ 简化：从统一配置中获取默认模型
     getDefaultModel: (provider) => {
       return CONFIG.apiProviders[provider]?.defaultModel || "";
+    },
+    getProviderBaseUrl: (provider) => {
+      return CONFIG.apiProviders[provider]?.baseUrl || "";
     },
     // 预设模板
     templates: {
@@ -327,9 +310,29 @@
     };
   };
   var cloneRequestParams = (params) => JSON.parse(JSON.stringify(params || {}));
-  var getProviderRequestParams = (providerId) => {
-    const provider = CONFIG.apiProviders[providerId];
-    return cloneRequestParams(provider?.requestParams);
+  var normalizeOpenAICompatibleEndpoint = (apiBaseUrl) => {
+    const trimmed = (apiBaseUrl || "").trim().replace(/\/+$/, "");
+    if (!trimmed) {
+      return "";
+    }
+    if (/\/chat\/completions$/i.test(trimmed)) {
+      return trimmed;
+    }
+    if (/\/v[\w.-]+$/i.test(trimmed) || /\/openai$/i.test(trimmed)) {
+      return `${trimmed}/chat/completions`;
+    }
+    return `${trimmed}/v1/chat/completions`;
+  };
+  var getProviderConfig = (providerId) => {
+    return CONFIG.apiProviders[providerId];
+  };
+  var getProviderModel = (providerId, savedModel) => {
+    const provider = getProviderConfig(providerId);
+    const validModels = provider?.models?.map((model) => model.value) || [];
+    if (savedModel && validModels.includes(savedModel)) {
+      return savedModel;
+    }
+    return CONFIG.getDefaultModel(providerId);
   };
   var isReasoningField = (key) => {
     return [
@@ -367,82 +370,35 @@
     /*
      * 调用AI API
      *
-     * 支持多种API格式：
-     * 1. 标准OpenAI格式（OpenAI, DeepSeek, Kimi等）
-     * 2. 自定义endpoint（第三方转发服务）
+     * 所有预设都按 OpenAI 兼容 API 处理；厂商选项只负责预填 Base URL 和模型。
      */
     callAPI: (messages, config) => {
       return new Promise((resolve, reject) => {
-        let endpoint = "";
-        if (config.apiProvider === "custom" && config.customEndpoint) {
-          endpoint = config.customEndpoint.replace(/\/+$/, "");
-          if (!endpoint.includes("/chat/completions")) {
-            if (/\/v\d+$/.test(endpoint)) {
-              endpoint += "/chat/completions";
-            } else {
-              endpoint += "/v1/chat/completions";
-            }
-          }
-        } else {
-          const provider2 = CONFIG.apiProviders[config.apiProvider];
-          if (!provider2) {
-            reject(new Error("\u672A\u77E5\u7684 API \u63D0\u4F9B\u5546"));
-            return;
-          }
-          endpoint = provider2.endpoint;
+        const provider = getProviderConfig(config.apiProvider);
+        const apiBaseUrl = config.apiProvider === "custom" ? config.customEndpoint : CONFIG.getProviderBaseUrl(config.apiProvider);
+        const endpoint = normalizeOpenAICompatibleEndpoint(apiBaseUrl);
+        if (!endpoint) {
+          reject(new Error("\u8BF7\u586B\u5199 OpenAI \u517C\u5BB9 API Base URL"));
+          return;
+        }
+        if (config.apiProvider !== "custom" && !provider) {
+          reject(new Error("\u672A\u77E5\u7684 API Base URL \u9884\u8BBE"));
+          return;
         }
         const headers = {
           "Content-Type": "application/json",
           "Authorization": `Bearer ${config.apiKey}`
         };
-        let modelName;
-        if (config.apiProvider === "custom") {
-          modelName = config.customModel || "gpt-3.5-turbo";
-        } else {
-          const provider2 = CONFIG.apiProviders[config.apiProvider];
-          const validModels = provider2?.models?.map((m) => m.value) || [];
-          if (config.customModel && validModels.includes(config.customModel)) {
-            modelName = config.customModel;
-          } else {
-            modelName = CONFIG.getDefaultModel(config.apiProvider);
-          }
-        }
+        const modelName = config.apiProvider === "custom" ? config.customModel || "gpt-4o-mini" : getProviderModel(config.apiProvider, config.customModel);
         const baseBody = {
           model: modelName,
           messages
         };
-        const provider = CONFIG.apiProviders[config.apiProvider];
-        let body;
-        if (provider?.requestParams) {
-          const params = getProviderRequestParams(config.apiProvider);
-          if (params.vendorSpecific && typeof params.vendorSpecific === "object") {
-            const vendorFields = params.vendorSpecific;
-            delete params.vendorSpecific;
-            body = {
-              ...baseBody,
-              // model, messages
-              ...params,
-              // temperature, stream 等
-              ...vendorFields
-              // thinking, custom_param 等
-            };
-            getUI().log(`\u{1F527} \u68C0\u6D4B\u5230 vendorSpecific \u53C2\u6570`, "info", "debug");
-            getUI().log(`\u{1F4E6} \u5BB9\u5668\u5185\u5BB9: ${JSON.stringify(vendorFields)}`, "info", "debug");
-            getUI().log(`\u2705 \u5DF2\u81EA\u52A8\u5C55\u5F00\u5230\u8BF7\u6C42\u4F53\u6839\u7EA7\u522B`, "success", "debug");
-          } else {
-            body = { ...baseBody, ...params };
-          }
-        } else {
-          body = {
-            ...baseBody,
-            temperature: 0.3,
-            max_tokens: 500,
-            stream: false
-            // ⚠️ 不添加 vendorSpecific！
-            // 原因：不知道用户的 API 支持什么参数，保守策略
-          };
-          getUI().log("\u2139\uFE0F \u81EA\u5B9A\u4E49 API \u4E0D\u6CE8\u5165\u5382\u5546\u601D\u8003\u53C2\u6570\uFF1B\u5982\u6A21\u578B\u8FD4\u56DE\u601D\u8003\u5185\u5BB9\uFF0C\u811A\u672C\u53EA\u8BFB\u53D6\u6700\u7EC8\u56DE\u7B54", "info", "debug");
-        }
+        const body = {
+          ...baseBody,
+          ...cloneRequestParams(CONFIG.openAICompatibleRequestParams)
+        };
+        getUI().log("\u2139\uFE0F \u4F7F\u7528 OpenAI \u517C\u5BB9\u901A\u7528\u8BF7\u6C42\u4F53\uFF0C\u4E0D\u6CE8\u5165\u5382\u5546\u4E13\u5C5E\u53C2\u6570", "info", "debug");
         getUI().log(`\u{1F4E1} \u8BF7\u6C42\u5730\u5740: ${endpoint}`, "info", "debug");
         getUI().log(`\u{1F916} \u4F7F\u7528\u6A21\u578B: ${body.model}`, "info", "debug");
         getUI().log(`\u2699\uFE0F \u53C2\u6570: temperature=${body.temperature}, max_tokens=${body.max_tokens}, stream=${body.stream}`, "info", "debug");
@@ -532,10 +488,10 @@
       getUI().log("\u{1F9EA} \u5F00\u59CB\u6D4B\u8BD5 API \u8FDE\u63A5", "info");
       getUI().log("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550", "info");
       getUI().log(`\u{1F4CC} \u914D\u7F6E\u5FEB\u7167:`, "info", "debug");
-      getUI().log(`  \u2022 API \u63D0\u4F9B\u5546: ${config.apiProvider}`, "info", "debug");
+      getUI().log(`  \u2022 API Base URL \u9884\u8BBE: ${config.apiProvider}`, "info", "debug");
       getUI().log(`  \u2022 API Key: ${config.apiKey ? "\u5DF2\u586B\u5199" : "\u672A\u586B\u5199"}`, "info", "debug");
-      getUI().log(`  \u2022 \u81EA\u5B9A\u4E49\u7AEF\u70B9: ${config.customEndpoint || "(\u7A7A - \u4F7F\u7528\u9884\u8BBE)"}`, "info");
-      getUI().log(`  \u2022 \u81EA\u5B9A\u4E49\u6A21\u578B: ${config.customModel || "(\u7A7A - \u4F7F\u7528\u9884\u8BBE)"}`, "info");
+      getUI().log(`  \u2022 API Base URL: ${config.customEndpoint || "(\u7A7A)"}`, "info");
+      getUI().log(`  \u2022 \u6A21\u578B: ${config.customModel || "(\u7A7A - \u4F7F\u7528\u9884\u8BBE\u9ED8\u8BA4)"}`, "info");
       getUI().log("", "info");
       const testMessages = [
         { role: "user", content: '\u8BF7\u53EA\u56DE\u590D"\u8FDE\u63A5\u6210\u529F"\uFF0C\u4E0D\u8981\u8F93\u51FA\u4EFB\u4F55\u601D\u8003\u8FC7\u7A0B\u3002' }
@@ -918,6 +874,9 @@ ${dossier}
       if (!validProviders.includes(merged.apiProvider)) {
         console.warn(`[\u667A\u80FD\u52A9\u624B] \u26A0\uFE0F apiProvider \u65E0\u6548 (${merged.apiProvider})\uFF0C\u91CD\u7F6E\u4E3A deepseek`);
         merged.apiProvider = "deepseek";
+      }
+      if (merged.apiProvider !== "custom") {
+        merged.customEndpoint = CONFIG.getProviderBaseUrl(merged.apiProvider);
       }
       console.log("[\u667A\u80FD\u52A9\u624B] \u2705 \u914D\u7F6E\u52A0\u8F7D\u5E76\u9A8C\u8BC1\u5B8C\u6210");
       return merged;
@@ -1576,7 +1535,7 @@ ${dossier}
 
                     <div class="smart-feed-section">
                         <div class="smart-feed-label">
-                            \u{1F50C} API \u63D0\u4F9B\u5546
+                            \u{1F50C} API Base URL \u9884\u8BBE
                             <span class="smart-feed-help" title="\u70B9\u51FB\u201C\u5173\u4E8E\u201D\u6807\u7B7E\u67E5\u770B\u8BE6\u7EC6\u6559\u7A0B">?</span>
                         </div>
                         <select class="smart-feed-select" id="apiProvider">
@@ -1626,7 +1585,7 @@ ${dossier}
                                         <td>
                                             <strong>\u586B\u5199\u914D\u7F6E</strong><br>
                                             <span style="color: #64748b;">
-                                            \u2022 \u5728\u4E0B\u65B9"<strong>API \u63D0\u4F9B\u5546</strong>"\u9009\u4F60\u521A\u6CE8\u518C\u7684\u5E73\u53F0<br>
+                                            \u2022 \u5728\u4E0B\u65B9"<strong>API Base URL \u9884\u8BBE</strong>"\u9009\u4F60\u521A\u6CE8\u518C\u7684\u5E73\u53F0<br>
                                             \u2022 \u628A\u590D\u5236\u7684 Key \u7C98\u8D34\u5230"<strong>API Key</strong>"\u8F93\u5165\u6846<br>
                                             \u2022 \u70B9\u51FB"<strong>\u{1F9EA} \u6D4B\u8BD5\u8FDE\u63A5</strong>"\u6309\u94AE\uFF08\u770B\u5230\u7EFF\u8272\u6210\u529F\u63D0\u793A\u5C31\u5BF9\u4E86\uFF09
                                             </span>
@@ -1681,9 +1640,9 @@ ${dossier}
                                 <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
                                     \u5982\u679C\u4F60\u7528\u7684\u662F\u7B2C\u4E09\u65B9\u8F6C\u53D1\u670D\u52A1\uFF08\u5982 OpenAI \u4E2D\u8F6C\uFF09\uFF1A<br><br>
                     
-                                    1\uFE0F\u20E3 \u5728"<strong>API \u63D0\u4F9B\u5546</strong>"\u9009"<strong>\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API</strong>"<br>
-                                    2\uFE0F\u20E3 \u586B\u5199 API \u5730\u5740\uFF08\u53EA\u9700\u586B\u5230\u57DF\u540D\u6216 /v1\uFF0C\u811A\u672C\u4F1A\u81EA\u52A8\u8865\u5168\uFF09\uFF1A<br>
-                                    <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">https://api.example.com/v1</code><br>
+                                    1\uFE0F\u20E3 \u5728"<strong>API Base URL \u9884\u8BBE</strong>"\u9009"<strong>\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API</strong>"<br>
+                                    2\uFE0F\u20E3 \u586B\u5199 API Base URL\uFF08\u53EA\u9700\u586B\u5230\u57DF\u540D\u6216 /v1\uFF0C\u811A\u672C\u4F1A\u81EA\u52A8\u8865\u5168\uFF09\uFF1A<br>
+                                    <code style="background: #f1f5f9; padding: 2px 6px; border-radius: 3px;">http://127.0.0.1:8317</code><br>
                                     3\uFE0F\u20E3 \u624B\u52A8\u8F93\u5165\u6A21\u578B\u540D\u79F0\uFF08\u5982 <code>gpt-4o-mini</code>\uFF09<br><br>
                     
                                     <strong style="color: #92400e;">\u26A0\uFE0F \u63A8\u7406/\u601D\u8003\u6A21\u578B\u517C\u5BB9\u8BF4\u660E</strong><br>
@@ -1715,31 +1674,32 @@ ${dossier}
                             <!-- \u7531 JavaScript \u52A8\u6001\u751F\u6210 -->
                         </select>
                         <small style="color: #94a3b8; display: block; margin-top: 5px; font-size: 12px;">
-                            \u2699\uFE0F \u5F00\u53D1\u8005\u63D0\u793A\uFF1A\u65B0\u589E\u6A21\u578B\u8BF7\u4FEE\u6539 <code>CONFIG.apiProviders[\u5382\u5546].models</code> \u6570\u7EC4
+                            \u2699\uFE0F \u9884\u8BBE\u53EA\u4F1A\u56DE\u586B Base URL \u548C\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BF7\u6C42\u59CB\u7EC8\u6309 OpenAI \u517C\u5BB9\u683C\u5F0F\u53D1\u9001
                         </small>
                     </div>
 
-                    <!-- \u{1F195} \u81EA\u5B9A\u4E49 API \u5730\u5740\uFF08\u4EC5\u5728\u9009\u62E9"\u81EA\u5B9A\u4E49"\u65F6\u663E\u793A\uFF09 -->
-                    <div class="smart-feed-section" id="customEndpointSection" style="display: none;">
+                    <!-- OpenAI \u517C\u5BB9 API Base URL -->
+                    <div class="smart-feed-section" id="customEndpointSection">
                         <div class="smart-feed-label">
-                            \u{1F310} API \u5730\u5740
-                            <span class="smart-feed-help" title="\u4EC5\u5728\u4F7F\u7528\u81EA\u5B9A\u4E49 API \u65F6\u586B\u5199">?</span>
+                            \u{1F310} API Base URL
+                            <span class="smart-feed-help" title="\u652F\u6301\u5B98\u65B9\u3001\u8F6C\u53D1\u3001\u672C\u5730 OpenAI \u517C\u5BB9 API">?</span>
                         </div>
-                        <input type="text" class="smart-feed-input" id="customEndpoint" placeholder="\u7559\u7A7A\u5219\u4F7F\u7528\u5B98\u65B9\u5730\u5740">
+                        <input type="text" class="smart-feed-input" id="customEndpoint" placeholder="\u4F8B\u5982 http://127.0.0.1:8317 \u6216 https://api.example.com/v1">
                         <small style="color: #64748b; display: block; margin-top: 5px;">
                             \u{1F4A1} <strong>\u586B\u5199\u65B9\u5F0F\uFF08\u4EFB\u9009\u5176\u4E00\uFF09</strong>\uFF1A<br>
+                            \u2022 \u672C\u5730\u670D\u52A1\uFF1A<code>http://cliproxyapi:8317</code> \u6216 <code>http://127.0.0.1:8317</code><br>
                             \u2022 \u53EA\u586B\u57DF\u540D\uFF1A<code>https://api.example.com</code><br>
                             \u2022 \u586B\u5230\u7248\u672C\u53F7\uFF1A<code>https://api.example.com/v1</code><br>
                             \u2022 \u586B\u5B8C\u6574\u8DEF\u5F84\uFF1A<code>https://api.example.com/v1/chat/completions</code><br>
-                            <strong>\u2705 \u811A\u672C\u4F1A\u667A\u80FD\u8865\u5168\u7F3A\u5931\u90E8\u5206\uFF0C\u4F60\u586B\u54EA\u79CD\u90FD\u884C</strong>
+                            <strong>\u2705 \u811A\u672C\u4F1A\u667A\u80FD\u8865\u5168\u7F3A\u5931\u90E8\u5206\uFF1B\u624B\u52A8\u4FEE\u6539\u540E\u4F1A\u81EA\u52A8\u5207\u5230\u81EA\u5B9A\u4E49\u6A21\u5F0F</strong>
                         </small>
 
                         <!-- \u{1F195} \u601D\u8003\u6A21\u578B\u517C\u5BB9\u63D0\u793A -->
                         <div style="background: rgba(254, 243, 199, 0.9); border-left: 4px solid #f59e0b; padding: 12px; border-radius: 8px; margin-top: 10px; font-size: 13px; color: #92400e;">
                             <strong>\u26A0\uFE0F \u63A8\u7406/\u601D\u8003\u6A21\u578B\u8BF4\u660E</strong><br>
-                            \u81EA\u5B9A\u4E49 API \u53EF\u4EE5\u586B\u5199\u5E26\u63A8\u7406/\u601D\u8003\u80FD\u529B\u7684\u6A21\u578B\u3002<br>
+                            \u6240\u6709\u9884\u8BBE\u548C\u81EA\u5B9A\u4E49\u5730\u5740\u90FD\u4F1A\u6309 OpenAI \u517C\u5BB9 API \u53D1\u9001\u8BF7\u6C42\u3002<br>
                             \u811A\u672C\u4F1A\u4F18\u5148\u8BFB\u53D6\u6700\u7EC8\u56DE\u7B54\uFF08<code>content</code>\uFF09\uFF0C\u5E76\u5FFD\u7565 <code>reasoning_content</code> / <code>reasoning</code> \u7B49\u601D\u8003\u8FC7\u7A0B\u3002<br><br>
-                            <strong>\u6CE8\u610F</strong>\uFF1A\u4E0D\u540C\u5382\u5546\u7684\u601D\u8003\u5F00\u5173\u53D8\u5316\u5F88\u5FEB\uFF0C\u811A\u672C\u9ED8\u8BA4\u4E0D\u8FFD\u8E2A\u6BCF\u4E2A\u6A21\u578B\u7684\u4E13\u5C5E\u53C2\u6570\uFF1B\u5982\u679C\u6A21\u578B\u4ECD\u7136\u601D\u8003\uFF0C\u90A3\u5C31\u7531\u6A21\u578B\u81EA\u5DF1\u5904\u7406\uFF0C\u8D39\u7528\u4E5F\u6309\u4F60\u7684 API \u8D26\u6237\u7ED3\u7B97\u3002
+                            <strong>\u6CE8\u610F</strong>\uFF1A\u4E0D\u540C\u5382\u5546\u7684\u601D\u8003\u5F00\u5173\u53D8\u5316\u5F88\u5FEB\uFF0C\u811A\u672C\u9ED8\u8BA4\u4E0D\u8FFD\u8E2A\u6BCF\u4E2A\u6A21\u578B\u7684\u4E13\u5C5E\u53C2\u6570\uFF1B\u5982\u679C\u6A21\u578B\u4ECD\u7136\u601D\u8003\uFF0C\u90A3\u5C31\u7531\u6A21\u578B\u6216\u4F60\u7684\u8F6C\u53D1\u670D\u52A1\u5904\u7406\uFF0C\u8D39\u7528\u4E5F\u6309\u4F60\u7684 API \u8D26\u6237\u7ED3\u7B97\u3002
                         </div>
                     </div>
 
@@ -1878,7 +1838,7 @@ ${dossier}
                             <p>A: \u53EF\u4EE5\u3002\u811A\u672C\u4E0D\u4F1A\u6309\u5177\u4F53\u6A21\u578B\u540D\u7EF4\u62A4\u601D\u8003\u5F00\u5173\uFF0C\u53EA\u4F1A\u7528\u63D0\u793A\u8BCD\u8981\u6C42\u5C11\u8F93\u51FA\u601D\u8003\uFF0C\u5E76\u4F18\u5148\u8BFB\u53D6\u6700\u7EC8\u56DE\u7B54\uFF08content\uFF09\u3002\u5982\u679C\u6A21\u578B\u4ECD\u7136\u601D\u8003\uFF0C\u5C31\u8BA9\u5B83\u601D\u8003\uFF1B\u82E5\u63A5\u53E3\u53EA\u8FD4\u56DE\u601D\u8003\u5185\u5BB9\u800C\u6CA1\u6709\u6700\u7EC8\u56DE\u7B54\uFF0C\u811A\u672C\u4F1A\u63D0\u793A\u201C\u6A21\u578B\u672A\u8FD4\u56DE\u6700\u7EC8\u56DE\u7B54\u201D\u3002</p>
 
                             <p><strong>Q: \u51FA\u73B0 400/422 \u9519\u8BEF\u600E\u4E48\u529E\uFF1F</strong></p>
-                            <p>A: \u68C0\u67E5 API \u5730\u5740\u662F\u5426\u6B63\u786E\uFF0C\u6216\u5C1D\u8BD5\u5207\u6362\u5230\u9884\u8BBE\u5382\u5546\u914D\u7F6E\u3002</p>
+                            <p>A: \u68C0\u67E5 API Base URL \u662F\u5426\u6B63\u786E\uFF0C\u6216\u5C1D\u8BD5\u91CD\u65B0\u9009\u62E9\u4E00\u4E2A\u9884\u8BBE\u56DE\u586B\u9ED8\u8BA4\u5730\u5740\u3002</p>
 
                             <p><strong>Q: \u81EA\u5B9A\u4E49 API \u652F\u6301\u54EA\u4E9B\u53C2\u6570\uFF1F</strong></p>
 
@@ -1905,12 +1865,11 @@ ${dossier}
                             <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>\u{1F527} \u5F00\u53D1\u8005\u7EF4\u62A4\u8BF4\u660E</strong></p>
-                            <p>\u2022 <strong>\u7EDF\u4E00\u914D\u7F6E\u4F4D\u7F6E</strong>\uFF1A\u6240\u6709\u5382\u5546\u914D\u7F6E\u96C6\u4E2D\u5728 <code>CONFIG.apiProviders</code>\uFF08\u7B2C 145 \u884C\uFF09</p>
-                            <p>\u2022 <strong>\u65B0\u589E\u5382\u5546</strong>\uFF1A\u5728 <code>apiProviders</code> \u4E2D\u6DFB\u52A0\u4E00\u4E2A\u5BF9\u8C61\uFF0C\u5305\u542B name\u3001endpoint\u3001defaultModel\u3001models\u3001requestParams</p>
+                            <p>\u2022 <strong>\u7EDF\u4E00\u914D\u7F6E\u4F4D\u7F6E</strong>\uFF1A\u6240\u6709 Base URL \u9884\u8BBE\u96C6\u4E2D\u5728 <code>CONFIG.apiProviders</code></p>
+                            <p>\u2022 <strong>\u65B0\u589E\u9884\u8BBE</strong>\uFF1A\u5728 <code>apiProviders</code> \u4E2D\u6DFB\u52A0\u4E00\u4E2A\u5BF9\u8C61\uFF0C\u5305\u542B name\u3001baseUrl\u3001defaultModel\u3001models</p>
                             <p>\u2022 <strong>\u65B0\u589E\u6A21\u578B</strong>\uFF1A\u5728\u5BF9\u5E94\u5382\u5546\u7684 <code>models</code> \u6570\u7EC4\u4E2D\u6DFB\u52A0 <code>{ value: 'model-id', label: '\u663E\u793A\u540D\u79F0' }</code></p>
-                            <p>\u2022 <strong>\u8C03\u6574\u8BF7\u6C42\u53C2\u6570</strong>\uFF1A\u4FEE\u6539 <code>requestParams</code>\uFF08\u652F\u6301 temperature\u3001max_tokens\u3001stream\u3001extra_body \u7B49\uFF09</p>
-                            <p>\u2022 <strong>\u7279\u6B8A\u53C2\u6570\u7B56\u7565</strong>\uFF1A\u9ED8\u8BA4\u53EA\u53D1 OpenAI \u517C\u5BB9\u7684\u901A\u7528\u5B57\u6BB5\uFF1B\u5382\u5546\u4E13\u5C5E thinking \u53C2\u6570\u4E0D\u8981\u4F5C\u4E3A\u5E38\u89C4\u9002\u914D\u624B\u6BB5</p>
-                            <p>\u2022 <strong>\u65E0\u9700\u5206\u6563\u4FEE\u6539</strong>\uFF1A\u6A21\u578B\u3001\u7AEF\u70B9\u3001\u53C2\u6570\u5168\u90E8\u5728\u4E00\u4E2A\u914D\u7F6E\u5BF9\u8C61\u4E2D</p>
+                            <p>\u2022 <strong>\u8BF7\u6C42\u53C2\u6570\u7B56\u7565</strong>\uFF1A\u9ED8\u8BA4\u53EA\u53D1 OpenAI \u517C\u5BB9\u7684\u901A\u7528\u5B57\u6BB5\uFF1B\u5382\u5546\u4E13\u5C5E thinking \u53C2\u6570\u4E0D\u8981\u4F5C\u4E3A\u5E38\u89C4\u9002\u914D\u624B\u6BB5</p>
+                            <p>\u2022 <strong>\u65E0\u9700\u5206\u6563\u4FEE\u6539</strong>\uFF1A\u6A21\u578B\u548C Base URL \u5168\u90E8\u5728\u4E00\u4E2A\u914D\u7F6E\u5BF9\u8C61\u4E2D</p>
 
                             <p><strong>\u{1F4A1} \u4F7F\u7528\u6280\u5DE7\uFF1A</strong></p>
                             <p>\u2022 \u9996\u6B21\u4F7F\u7528\u5EFA\u8BAE\u5148\u6D4B\u8BD5\u8FDE\u63A5\uFF0C\u786E\u4FDDAPI\u53EF\u7528</p>
@@ -1976,6 +1935,23 @@ ${dossier}
           setTimeout(() => notice.remove(), 300);
         }, 2e3);
       }
+      function syncProviderPresetFromBaseUrl(cfg) {
+        const apiProviderEl = document.getElementById("apiProvider");
+        const customEndpointEl = document.getElementById("customEndpoint");
+        if (!apiProviderEl || !customEndpointEl) {
+          return;
+        }
+        const selectedProvider = apiProviderEl.value;
+        const apiBaseUrl = customEndpointEl.value.trim();
+        cfg.customEndpoint = apiBaseUrl;
+        if (selectedProvider !== "custom" && apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider)) {
+          cfg.apiProvider = "custom";
+          apiProviderEl.value = "custom";
+          updateModelOptions("custom");
+          return;
+        }
+        cfg.apiProvider = selectedProvider;
+      }
       function updateModelOptions(provider) {
         const modelSelect = document.getElementById("modelSelect");
         const modelSection = document.getElementById("modelSection");
@@ -1985,8 +1961,19 @@ ${dossier}
         }
         const providerConfig = CONFIG.apiProviders[provider];
         const options = providerConfig?.models || [];
+        const savedConfig = loadConfig();
         if (provider === "custom" || options.length === 0) {
           modelSelect.outerHTML = '<input type="text" class="smart-feed-input" id="modelSelect" placeholder="\u8F93\u5165\u6A21\u578B\u540D\u79F0\uFF08\u5982 gpt-4o-mini\uFF09">';
+          const modelInput = document.getElementById("modelSelect");
+          if (modelInput) {
+            modelInput.value = savedConfig.customModel || "";
+            modelInput.addEventListener("blur", async (e) => {
+              const cfg = loadConfig();
+              cfg.customModel = e.target.value.trim();
+              await saveConfig(cfg);
+              showSaveNotice();
+            });
+          }
           const smallEl = modelSection.querySelector("small");
           if (smallEl) smallEl.style.display = "none";
         } else {
@@ -2004,9 +1991,11 @@ ${dossier}
           });
           const smallEl = modelSection.querySelector("small");
           if (smallEl) smallEl.style.display = "block";
-          const savedConfig = loadConfig();
+          const fallbackModel = providerConfig.defaultModel || options[0]?.value || "";
           if (savedConfig.customModel && options.find((o) => o.value === savedConfig.customModel)) {
             newSelect.value = savedConfig.customModel;
+          } else if (fallbackModel) {
+            newSelect.value = fallbackModel;
           }
           newSelect.addEventListener("change", async (e) => {
             const cfg = loadConfig();
@@ -2027,9 +2016,8 @@ ${dossier}
             const modelSelectEl = document.getElementById("modelSelect");
             const apiProviderEl = document.getElementById("apiProvider");
             if (apiKeyEl) cfg.apiKey = apiKeyEl.value;
-            if (customEndpointEl) cfg.customEndpoint = customEndpointEl.value;
             if (modelSelectEl) cfg.customModel = modelSelectEl.value;
-            if (apiProviderEl) cfg.apiProvider = apiProviderEl.value;
+            if (apiProviderEl && customEndpointEl) syncProviderPresetFromBaseUrl(cfg);
             cfg.promptLike = document.getElementById("promptLike")?.value || cfg.promptLike;
             cfg.promptNeutral = document.getElementById("promptNeutral")?.value || cfg.promptNeutral;
             cfg.promptDislike = document.getElementById("promptDislike")?.value || cfg.promptDislike;
@@ -2176,14 +2164,17 @@ ${dossier}
         const provider = e.target.value;
         const cfg = loadConfig();
         cfg.apiProvider = provider;
+        if (provider !== "custom") {
+          cfg.customEndpoint = CONFIG.getProviderBaseUrl(provider);
+          cfg.customModel = CONFIG.getDefaultModel(provider);
+          document.getElementById("customEndpoint").value = cfg.customEndpoint;
+        }
         await saveConfig(cfg);
         showSaveNotice();
         updateModelOptions(provider);
-        document.getElementById("customEndpointSection").style.display = provider === "custom" ? "block" : "none";
       });
       setTimeout(() => {
         updateModelOptions(config.apiProvider);
-        document.getElementById("customEndpointSection").style.display = config.apiProvider === "custom" ? "block" : "none";
       }, 100);
       UI.panel.querySelectorAll(".smart-feed-help").forEach((help) => {
         help.addEventListener("click", () => {
@@ -2201,10 +2192,13 @@ ${dossier}
         }
         btn.textContent = "\u6D4B\u8BD5\u4E2D...";
         btn.disabled = true;
+        const selectedProvider = document.getElementById("apiProvider").value;
+        const apiBaseUrl = document.getElementById("customEndpoint").value.trim();
+        const effectiveProvider = selectedProvider !== "custom" && apiBaseUrl !== CONFIG.getProviderBaseUrl(selectedProvider) ? "custom" : selectedProvider;
         const testConfig = {
           apiKey: document.getElementById("apiKey").value.trim(),
-          apiProvider: document.getElementById("apiProvider").value,
-          customEndpoint: document.getElementById("customEndpoint").value.trim(),
+          apiProvider: effectiveProvider,
+          customEndpoint: apiBaseUrl,
           customModel: document.getElementById("modelSelect").value.trim()
         };
         UI.log("\u{1F50D} \u6267\u884C\u524D\u7F6E\u68C0\u67E5...", "info", "debug");
@@ -2215,9 +2209,12 @@ ${dossier}
           btn.disabled = false;
           return;
         }
-        if (testConfig.apiProvider === "custom" && !testConfig.customEndpoint) {
-          UI.log('\u26A0\uFE0F \u9009\u62E9\u4E86"\u81EA\u5B9A\u4E49 API"\u4F46\u672A\u586B\u5199 API \u5730\u5740', "warning");
-          UI.log("\u{1F4A1} \u8BF7\u586B\u5199\u81EA\u5B9A\u4E49 API \u5730\u5740\uFF0C\u6216\u5207\u6362\u5230\u9884\u8BBE\u63D0\u4F9B\u5546", "warning");
+        if (!testConfig.customEndpoint) {
+          UI.log("\u274C \u68C0\u6D4B\u5230\u7A7A\u7684 API Base URL\uFF01", "error");
+          UI.log("\u{1F4A1} \u8BF7\u9009\u62E9\u4E00\u4E2A\u9884\u8BBE\uFF0C\u6216\u586B\u5199\u672C\u5730/\u8F6C\u53D1 API \u5730\u5740", "warning");
+          btn.textContent = originalText;
+          btn.disabled = false;
+          return;
         }
         UI.log("\u2705 \u524D\u7F6E\u68C0\u67E5\u901A\u8FC7\uFF0C\u5F00\u59CB\u6D4B\u8BD5...", "success");
         UI.log("", "info");
@@ -2230,8 +2227,8 @@ ${dossier}
           UI.log("", "error");
           UI.log("\u{1F48A} \u6545\u969C\u6392\u67E5\u5EFA\u8BAE:", "warning");
           UI.log("  1. \u68C0\u67E5 API Key \u662F\u5426\u6B63\u786E\uFF08\u6CE8\u610F\u524D\u540E\u7A7A\u683C\uFF09", "warning");
-          UI.log("  2. \u786E\u8BA4\u9009\u62E9\u7684\u63D0\u4F9B\u5546\u548C\u5B9E\u9645 Key \u5339\u914D", "warning");
-          UI.log("  3. \u68C0\u67E5\u7F51\u7EDC\u662F\u5426\u80FD\u8BBF\u95EE\u5BF9\u5E94 API \u5730\u5740", "warning");
+          UI.log("  2. \u786E\u8BA4 API Base URL \u548C\u5B9E\u9645 Key \u5339\u914D", "warning");
+          UI.log("  3. \u68C0\u67E5\u6D4F\u89C8\u5668\u662F\u5426\u80FD\u8BBF\u95EE\u5BF9\u5E94 API \u5730\u5740", "warning");
           UI.log("  4. \u67E5\u770B\u4E0A\u65B9\u54CD\u5E94\u4F53\u4E2D\u7684\u5177\u4F53\u9519\u8BEF\u4FE1\u606F", "warning");
         }
         btn.textContent = originalText;
@@ -2279,6 +2276,8 @@ ${dossier}
                 parseInt(document.getElementById("watchMin").value),
                 parseInt(document.getElementById("watchMax").value)
               ];
+            } else if (id === "customEndpoint") {
+              syncProviderPresetFromBaseUrl(cfg);
             } else {
               cfg[id] = el.type === "number" ? parseInt(el.value) : el.value;
             }

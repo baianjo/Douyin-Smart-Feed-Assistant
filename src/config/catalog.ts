@@ -3,7 +3,7 @@ const CONFIG = {
     defaults: {
         // API设置
         apiKey: '',
-        customEndpoint: '', // 自定义API地址（支持第三方转发）
+        customEndpoint: 'https://api.deepseek.com/v1', // OpenAI 兼容 API Base URL（旧字段名，兼容现有 GM 存储）
         customModel: '', // 自定义模型名称
         apiProvider: 'deepseek',
         judgeMode: 'single',
@@ -69,95 +69,83 @@ const CONFIG = {
     },
 
 
-    // ⚠️ 开发者维护区域：API 提供商统一配置
+    // ⚠️ 开发者维护区域：OpenAI 兼容 API Base URL 预设
     //
-    // 📌 requestParams 参数说明：
+    // 📌 通用请求参数说明：
     //   - 填写具体值（如 temperature: 0.3）→ 发送到 API
     //   - 注释掉或删除该行 → 不发送，使用 API 默认值
     //   - stream: false 是必填项（禁用流式输出）
     //
-    // 🔧 关于 vendorSpecific（厂商特定参数）：
-    //   • 仅在确认某厂商长期稳定支持、且确有必要时使用
-    //   • ⚠️ 切勿在所有配置中统一添加！原因：
-    //     - 多数 OpenAI 兼容 API 会严格验证参数
-    //     - 遇到未知字段会返回 400/422 错误
-    //     - 模型规则会随时间变化，默认策略应尽量使用 OpenAI 兼容最大公约数
-    //   • 自定义 API 暂不应添加 vendorSpecific
+    // 预设只负责回填 Base URL 和默认模型；实际请求始终走同一套 OpenAI 兼容逻辑。
+    openAICompatibleRequestParams: {
+        temperature: 0.3,
+        max_tokens: 500,
+        stream: false
+    },
+
     apiProviders: {
+        gpt: {
+            name: 'GPT / OpenAI',
+            baseUrl: 'https://api.openai.com/v1',
+            defaultModel: 'gpt-4o-mini',
+            models: [
+                { value: 'gpt-4o-mini', label: 'gpt-4o-mini' },
+                { value: 'gpt-4o', label: 'gpt-4o' }
+            ]
+        },
         deepseek: {
             name: 'DeepSeek（推荐：最便宜）',
-            endpoint: 'https://api.deepseek.com/v1/chat/completions',
+            baseUrl: 'https://api.deepseek.com/v1',
             defaultModel: 'deepseek-chat',
             models: [
                 { value: 'deepseek-chat', label: 'deepseek-chat (V3.2推荐)' }
-            ],
-            requestParams: {
-                temperature: 0.3,      // 可选：删除此行则使用 API 默认值
-                max_tokens: 500,       // 可选：删除此行则使用 API 默认值
-                stream: false          // 必填：禁用流式输出
-            }
+            ]
         },
         kimi: {
             name: 'Kimi / 月之暗面',
-            endpoint: 'https://api.moonshot.cn/v1/chat/completions',
+            baseUrl: 'https://api.moonshot.cn/v1',
             defaultModel: 'kimi-k2-0905-preview',
             models: [
                 { value: 'kimi-k2-0905-preview', label: 'kimi-k2-0905-preview' }
-            ],
-            requestParams: {
-                temperature: 0.3,
-                max_tokens: 500,
-                stream: false
-            }
+            ]
         },
         qwen: {
             name: 'Qwen / 通义千问',
-            endpoint: 'https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions',
+            baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
             defaultModel: 'qwen-flash',
             models: [
                 { value: 'qwen-max', label: 'qwen-max（最强）' },
                 { value: 'qwen-plus', label: 'qwen-plus（推荐）' },
                 { value: 'qwen-flash', label: 'qwen-flash（快速）' }
-            ],
-            requestParams: {
-                temperature: 0.3,
-                max_tokens: 500,
-                stream: false
-            }
+            ]
         },
         glm: {
             name: 'GLM / 智谱AI',
-            endpoint: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
+            baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
             defaultModel: 'glm-4.6',
             models: [
                 { value: 'glm-4.6', label: 'glm-4.6' },
                 { value: 'glm-4-flash', label: 'glm-4-flash（免费）' }
-            ],
-            requestParams: {
-                temperature: 0.3,
-                max_tokens: 500,
-                stream: false
-            }
+            ]
         },
         gemini: {
-            name: 'Gemini / Google AI Studio',
-            endpoint: 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+            name: 'Google / Gemini',
+            baseUrl: 'https://generativelanguage.googleapis.com/v1beta/openai',
             defaultModel: 'gemini-2.5-flash',
             models: [
                 { value: 'gemini-2.5-flash', label: 'gemini-2.5-flash' },
                 { value: 'gemini-3-flash-preview', label: 'gemini-3-flash-preview' },
-            ],
-            requestParams: {
-                temperature: 0.3,
-                max_tokens: 500,
-                stream: false
-            }
+            ]
         }
     },
 
     // ✅ 简化：从统一配置中获取默认模型
     getDefaultModel: (provider) => {
         return CONFIG.apiProviders[provider]?.defaultModel || '';
+    },
+
+    getProviderBaseUrl: (provider) => {
+        return CONFIG.apiProviders[provider]?.baseUrl || '';
     },
 
     // 预设模板

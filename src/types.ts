@@ -1,4 +1,5 @@
 export type ApiProviderId =
+  | 'gpt'
   | 'deepseek'
   | 'kimi'
   | 'qwen'

@@ -89,9 +89,37 @@ const extractFinalContent = (data) => {
 
 const cloneRequestParams = (params) => JSON.parse(JSON.stringify(params || {}));
 
-const getProviderRequestParams = (providerId) => {
-    const provider = CONFIG.apiProviders[providerId];
-    return cloneRequestParams(provider?.requestParams);
+const normalizeOpenAICompatibleEndpoint = (apiBaseUrl: string): string => {
+    const trimmed = (apiBaseUrl || '').trim().replace(/\/+$/, '');
+
+    if (!trimmed) {
+        return '';
+    }
+
+    if (/\/chat\/completions$/i.test(trimmed)) {
+        return trimmed;
+    }
+
+    if (/\/v[\w.-]+$/i.test(trimmed) || /\/openai$/i.test(trimmed)) {
+        return `${trimmed}/chat/completions`;
+    }
+
+    return `${trimmed}/v1/chat/completions`;
+};
+
+const getProviderConfig = (providerId) => {
+    return CONFIG.apiProviders[providerId];
+};
+
+const getProviderModel = (providerId, savedModel) => {
+    const provider = getProviderConfig(providerId);
+    const validModels = provider?.models?.map(model => model.value) || [];
+
+    if (savedModel && validModels.includes(savedModel)) {
+        return savedModel;
+    }
+
+    return CONFIG.getDefaultModel(providerId);
 };
 
 const isReasoningField = (key: string): boolean => {
@@ -135,38 +163,24 @@ const AIService = {
     /*
      * 调用AI API
      *
-     * 支持多种API格式：
-     * 1. 标准OpenAI格式（OpenAI, DeepSeek, Kimi等）
-     * 2. 自定义endpoint（第三方转发服务）
+     * 所有预设都按 OpenAI 兼容 API 处理；厂商选项只负责预填 Base URL 和模型。
      */
     callAPI: (messages, config): Promise<string> => {
         return new Promise((resolve, reject) => {
-            let endpoint = '';
+            const provider = getProviderConfig(config.apiProvider);
+            const apiBaseUrl = config.apiProvider === 'custom'
+                ? config.customEndpoint
+                : CONFIG.getProviderBaseUrl(config.apiProvider);
+            const endpoint = normalizeOpenAICompatibleEndpoint(apiBaseUrl);
 
-            // ✅ 修复：只有选择"自定义"时才使用 customEndpoint
-            if (config.apiProvider === 'custom' && config.customEndpoint) {  // ← 加上提供商判断
-                // 用户填写的自定义地址（简单处理）
-                endpoint = config.customEndpoint.replace(/\/+$/, '');
+            if (!endpoint) {
+                reject(new Error('请填写 OpenAI 兼容 API Base URL'));
+                return;
+            }
 
-                // 如果用户只填了基础地址（如 https://api.example.com 或 https://api.example.com/v1）
-                if (!endpoint.includes('/chat/completions')) {
-                    // 智能补全
-                    if (/\/v\d+$/.test(endpoint)) {
-                        // 情况 1: 已有版本号 /v1, /v4 等
-                        endpoint += '/chat/completions';
-                    } else {
-                        // 情况 2: 无版本号或其他路径，统一加 /v1/chat/completions
-                        endpoint += '/v1/chat/completions';
-                    }
-                }
-            } else {
-                // 使用预设厂商的完整端点
-                const provider = CONFIG.apiProviders[config.apiProvider];
-                if (!provider) {
-                    reject(new Error('未知的 API 提供商'));
-                    return;
-                }
-                endpoint = provider.endpoint;
+            if (config.apiProvider !== 'custom' && !provider) {
+                reject(new Error('未知的 API Base URL 预设'));
+                return;
             }
 
 
@@ -177,106 +191,21 @@ const AIService = {
             };
 
             // ✅ 构建请求体基础部分（防止提供商间模型混用）
-            let modelName;
-            if (config.apiProvider === 'custom') {
-                // 自定义模式：直接使用用户输入的模型名
-                modelName = config.customModel || 'gpt-3.5-turbo';
-            } else {
-                // 预设模式：检查保存的模型是否在当前提供商的列表中
-                const provider = CONFIG.apiProviders[config.apiProvider];
-                const validModels = provider?.models?.map(m => m.value) || [];
-
-                if (config.customModel && validModels.includes(config.customModel)) {
-                    modelName = config.customModel;
-                } else {
-                    // 如果保存的模型不匹配，使用当前提供商的默认模型
-                    modelName = CONFIG.getDefaultModel(config.apiProvider);
-                }
-            }
+            const modelName = config.apiProvider === 'custom'
+                ? (config.customModel || 'gpt-4o-mini')
+                : getProviderModel(config.apiProvider, config.customModel);
 
             const baseBody = {
                 model: modelName,
                 messages: messages
             };
 
-            // ✅ 合并厂商特定的请求参数（temperature、max_tokens、stream、vendorSpecific 等）
-            const provider = CONFIG.apiProviders[config.apiProvider];
-            let body;
+            const body = {
+                ...baseBody,
+                ...cloneRequestParams(CONFIG.openAICompatibleRequestParams)
+            };
 
-            if (provider?.requestParams) {
-                const params = getProviderRequestParams(config.apiProvider);
-
-                // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                // 🔧 vendorSpecific 自动展开机制
-                // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-                //
-                // 作用：将厂商特定参数从容器中提取，放到请求体根级别
-                //
-                // 示例转换：
-                //   输入 requestParams:
-                //   {
-                //       temperature: 0.3,
-                //       vendorSpecific: {
-                //           thinking: { type: 'disabled' },
-                //           custom_param: true
-                //       }
-                //   }
-                //
-                //   输出 HTTP 请求体:
-                //   {
-                //       "model": "glm-4.6",
-                //       "messages": [...],
-                //       "temperature": 0.3,              ← 标准参数保留
-                //       "thinking": { "type": "disabled" },  ← 从 vendorSpecific 展开
-                //       "custom_param": true             ← 从 vendorSpecific 展开
-                //   }
-                //
-                // 为什么这样设计？
-                //   • 避免配置文件混乱（清晰区分标准参数和特殊参数）
-                //   • 防止参数冲突（不同厂商的特殊参数互不干扰）
-                //
-                // ⚠️ 注意事项：
-                //   • vendorSpecific 中的参数会覆盖同名的外层参数
-                //   • 仅在预设厂商配置中使用，自定义 API 不支持
-                //   • 如果参数未生效，检查日志中的"完整请求体 JSON"
-                //
-                // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
-                if (params.vendorSpecific && typeof params.vendorSpecific === 'object') {
-                    // 提取特殊参数
-                    const vendorFields = params.vendorSpecific;
-
-                    // 从 params 中删除容器（避免发送 vendorSpecific 字段本身）
-                    delete params.vendorSpecific;
-
-                    // 合并：基础内容 + 标准参数 + 厂商特殊参数
-                    body = {
-                        ...baseBody,      // model, messages
-                        ...params,        // temperature, stream 等
-                        ...vendorFields   // thinking, custom_param 等
-                    };
-
-                    // 🆕 更详细的调试日志
-                    getUI().log(`🔧 检测到 vendorSpecific 参数`, 'info', 'debug');
-                    getUI().log(`📦 容器内容: ${JSON.stringify(vendorFields)}`, 'info', 'debug');
-                    getUI().log(`✅ 已自动展开到请求体根级别`, 'success', 'debug');
-                } else {
-                    // 没有特殊参数，直接合并
-                    body = { ...baseBody, ...params };
-                }
-            } else {
-                // 🆕 自定义 API：使用最小化请求体（第 818 行开始的逻辑）
-                body = {
-                    ...baseBody,
-                    temperature: 0.3,
-                    max_tokens: 500,
-                    stream: false
-                    // ⚠️ 不添加 vendorSpecific！
-                    // 原因：不知道用户的 API 支持什么参数，保守策略
-                };
-
-                getUI().log('ℹ️ 自定义 API 不注入厂商思考参数；如模型返回思考内容，脚本只读取最终回答', 'info', 'debug');
-            }
+            getUI().log('ℹ️ 使用 OpenAI 兼容通用请求体，不注入厂商专属参数', 'info', 'debug');
 
             getUI().log(`📡 请求地址: ${endpoint}`, 'info', 'debug');
             getUI().log(`🤖 使用模型: ${body.model}`, 'info', 'debug');
@@ -384,10 +313,10 @@ const AIService = {
 
         // 🆕 显示当前配置快照
         getUI().log(`📌 配置快照:`, 'info', 'debug');
-        getUI().log(`  • API 提供商: ${config.apiProvider}`, 'info', 'debug');
+        getUI().log(`  • API Base URL 预设: ${config.apiProvider}`, 'info', 'debug');
         getUI().log(`  • API Key: ${config.apiKey ? '已填写' : '未填写'}`, 'info', 'debug');
-        getUI().log(`  • 自定义端点: ${config.customEndpoint || '(空 - 使用预设)'}`, 'info');
-        getUI().log(`  • 自定义模型: ${config.customModel || '(空 - 使用预设)'}`, 'info');
+        getUI().log(`  • API Base URL: ${config.customEndpoint || '(空)'}`, 'info');
+        getUI().log(`  • 模型: ${config.customModel || '(空 - 使用预设默认)'}`, 'info');
         getUI().log('', 'info');
 
         const testMessages = [
