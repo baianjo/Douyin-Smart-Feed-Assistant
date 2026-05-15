@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.3.3 - 2026-05-15
+
+- Restyle the in-page assistant panel as a quieter workbench UI with neutral surfaces, clearer borders, restrained shadows, and state-color accents.
+- Standardize the setup guide, log toolbar, stats cards, about sections, and save toast styling while preserving the existing copy and interactions.
+- Rebuild the userscript release artifact from source.
+
 ## 2.3.2 - 2026-05-06
 
 - Keep manually maintained models as extra candidates only; default model selection now remains driven by the cost heuristic.
