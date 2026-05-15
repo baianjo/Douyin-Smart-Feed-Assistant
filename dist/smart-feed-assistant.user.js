@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.3.3
+// @version      2.3.4
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
@@ -1165,135 +1165,88 @@ ${dossier}
     floatingButton: null,
     create: () => {
       GM_addStyle(`
-            .smart-feed-panel,
-            .smart-feed-panel *,
-            .smart-feed-float-btn {
-                box-sizing: border-box;
-            }
-
-            .smart-feed-panel,
-            .smart-feed-toast {
-                --sf-surface: #fbfaf7;
-                --sf-surface-strong: #ffffff;
-                --sf-surface-muted: #f2f0ea;
-                --sf-border: #ddd8cd;
-                --sf-border-strong: #c9c2b5;
-                --sf-text: #25231f;
-                --sf-muted: #6f6a61;
-                --sf-soft: #8b8579;
-                --sf-accent: #1f7a6d;
-                --sf-accent-strong: #176458;
-                --sf-accent-soft: #e3f2ed;
-                --sf-warning: #b7791f;
-                --sf-warning-soft: #fff5db;
-                --sf-danger: #bd3b31;
-                --sf-danger-soft: #fff0ee;
-                --sf-info: #2f6f9f;
-                --sf-info-soft: #edf6fb;
-                --sf-shadow: 0 18px 44px rgba(42, 39, 34, 0.18);
-                --sf-radius: 8px;
-            }
-
-            /* \u60AC\u6D6E\u6309\u94AE - \u5B89\u9759\u5DE5\u5177\u5165\u53E3 */
+            /* \u60AC\u6D6E\u6309\u94AE - \u6C34\u6676\u98CE\u683C */
             .smart-feed-float-btn {
                 position: fixed;
-                width: 52px;
-                height: 52px;
-                border-radius: 8px;
-                background: #25231f;
-                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
-                border: 1px solid rgba(255, 255, 255, 0.08);
+                width: 60px;
+                height: 60px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, rgba(139, 162, 251, 0.85) 0%, rgba(185, 163, 251, 0.85) 100%);
+                backdrop-filter: blur(10px);
+                box-shadow: 0 8px 32px rgba(139, 162, 251, 0.3),
+                            inset 0 1px 0 rgba(255, 255, 255, 0.4);
+                border: 1px solid rgba(255, 255, 255, 0.2);
                 cursor: move;
                 z-index: 999999;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 22px;
-                transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+                font-size: 24px;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 user-select: none;
             }
 
             .smart-feed-float-btn:hover {
-                background: #1f7a6d;
-                box-shadow: 0 14px 34px rgba(31, 122, 109, 0.26);
-                border-color: rgba(255, 255, 255, 0.18);
+                transform: scale(1.05);
+                box-shadow: 0 12px 40px rgba(139, 162, 251, 0.4),
+                            inset 0 1px 0 rgba(255, 255, 255, 0.5);
             }
 
             .smart-feed-float-btn.running {
-                background: #1f7a6d;
-                animation: smart-feed-running-pulse 2.4s ease-in-out infinite;
+                background: linear-gradient(135deg, rgba(99, 230, 190, 0.85) 0%, rgba(56, 178, 172, 0.85) 100%);
+                animation: pulse-glow 2s infinite;
             }
 
-            @keyframes smart-feed-running-pulse {
+            @keyframes pulse-glow {
                 0%, 100% {
-                    box-shadow: 0 12px 30px rgba(31, 122, 109, 0.24);
+                    box-shadow: 0 8px 32px rgba(99, 230, 190, 0.3),
+                                inset 0 1px 0 rgba(255, 255, 255, 0.4);
                 }
                 50% {
-                    box-shadow: 0 12px 38px rgba(31, 122, 109, 0.42);
+                    box-shadow: 0 12px 48px rgba(99, 230, 190, 0.6),
+                                inset 0 1px 0 rgba(255, 255, 255, 0.5);
                 }
             }
 
-            @keyframes smart-feed-slide-in {
-                from {
-                    opacity: 0;
-                    transform: translateY(-8px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            @keyframes smart-feed-slide-out {
-                from {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-                to {
-                    opacity: 0;
-                    transform: translateY(-8px);
-                }
-            }
-
-            /* \u4E3B\u9762\u677F - \u5B89\u9759\u5DE5\u5177\u53F0 */
+            /* \u4E3B\u9762\u677F - \u6BDB\u73BB\u7483\u6548\u679C */
             .smart-feed-panel {
                 position: fixed;
                 width: 420px;
-                max-width: calc(100vw - 20px);
                 max-height: 80vh;
-                background: var(--sf-surface);
-                border: 1px solid var(--sf-border);
-                border-radius: var(--sf-radius);
-                box-shadow: var(--sf-shadow);
+                background: rgba(255, 255, 255, 0.5);
+                backdrop-filter: blur(20px) saturate(180%);
+                -webkit-backdrop-filter: blur(20px) saturate(180%);
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(100, 100, 150, 0.15),
+                            0 0 0 1px rgba(255, 255, 255, 0.3);
                 z-index: 999998;
-                font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
-                color: var(--sf-text);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                color: #1f2937;
                 overflow: hidden;
-                transition: opacity 0.2s ease, box-shadow 0.2s ease;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
-            /* \u9876\u90E8\u6807\u9898\u680F + \u96C6\u6210\u5F00\u59CB\u6309\u94AE */
+            /* \u9876\u90E8\u6807\u9898\u680F - \u6C34\u6676\u98CE\u683C + \u96C6\u6210\u5F00\u59CB\u6309\u94AE */
             .smart-feed-header {
-                padding: 12px 14px;
-                background: var(--sf-surface-strong);
-                border-bottom: 1px solid var(--sf-border);
+                padding: 16px 20px;
+                background: linear-gradient(135deg, rgba(139, 162, 251, 0.65) 0%, rgba(185, 163, 251, 0.65) 100%);
+                backdrop-filter: blur(10px);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.2);
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                gap: 12px;
                 cursor: move;
                 user-select: none;
             }
 
             .smart-feed-title {
-                min-width: 0;
-                font-size: 15px;
+                font-size: 16px;
                 font-weight: 700;
-                color: var(--sf-text);
+                color: rgba(255, 255, 255, 0.95);
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                line-height: 1.3;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             }
 
             /* \u9876\u90E8\u6309\u94AE\u7EC4 */
@@ -1301,69 +1254,63 @@ ${dossier}
                 display: flex;
                 gap: 8px;
                 align-items: center;
-                flex-shrink: 0;
             }
 
             /* \u5F00\u59CB\u8FD0\u884C\u6309\u94AE\uFF08\u5728\u9876\u90E8\uFF09 */
             .smart-feed-start-btn {
-                min-width: 76px;
-                padding: 8px 14px;
-                border-radius: 8px;
-                border: 1px solid var(--sf-accent);
-                background: var(--sf-accent);
-                color: #ffffff;
-                font-size: 13px;
-                font-weight: 700;
-                line-height: 1;
+                padding: 8px 16px;
+                border-radius: 10px;
+                border: none;
+                background: rgba(255, 255, 255, 0.9);
+                color: #10b981;
+                font-size: 14px;
+                font-weight: 600;
                 cursor: pointer;
-                transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-                box-shadow: 0 6px 14px rgba(31, 122, 109, 0.18);
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
             }
 
             .smart-feed-start-btn:hover {
-                background: var(--sf-accent-strong);
-                border-color: var(--sf-accent-strong);
-                box-shadow: 0 8px 18px rgba(31, 122, 109, 0.24);
+                background: rgba(255, 255, 255, 1);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
             }
 
             .smart-feed-start-btn.running {
-                background: var(--sf-danger);
-                border-color: var(--sf-danger);
+                background: rgba(239, 68, 68, 0.9);
                 color: white;
             }
 
             .smart-feed-start-btn.running:hover {
-                background: #9f3028;
-                border-color: #9f3028;
+                background: rgba(239, 68, 68, 1);
             }
 
             .smart-feed-close {
-                width: 30px;
-                height: 30px;
-                border-radius: 8px;
-                background: var(--sf-surface-muted);
-                border: 1px solid var(--sf-border);
-                color: var(--sf-muted);
-                font-size: 19px;
-                line-height: 1;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.25);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                color: rgba(255, 255, 255, 0.95);
+                font-size: 20px;
                 cursor: pointer;
-                transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+                transition: all 0.2s;
                 display: flex;
                 align-items: center;
                 justify-content: center;
             }
 
             .smart-feed-close:hover {
-                background: var(--sf-danger-soft);
-                border-color: #e6b6b0;
-                color: var(--sf-danger);
+                background: rgba(255, 255, 255, 0.35);
+                transform: rotate(90deg);
             }
 
             .smart-feed-body {
                 max-height: calc(80vh - 70px);
                 overflow-y: auto;
-                padding: 14px;
-                background: var(--sf-surface);
+                padding: 20px;
+                background: rgba(255, 255, 255, 0.5);
             }
 
             .smart-feed-body::-webkit-scrollbar {
@@ -1371,124 +1318,120 @@ ${dossier}
             }
 
             .smart-feed-body::-webkit-scrollbar-thumb {
-                background: #c8c0b3;
+                background: rgba(139, 162, 251, 0.3);
                 border-radius: 3px;
             }
 
             .smart-feed-body::-webkit-scrollbar-thumb:hover {
-                background: #aaa194;
+                background: rgba(139, 162, 251, 0.5);
             }
 
             /* \u6807\u7B7E\u9875 */
             .smart-feed-tabs {
                 display: flex;
-                gap: 4px;
-                margin-bottom: 14px;
-                background: var(--sf-surface-muted);
+                gap: 8px;
+                margin-bottom: 20px;
+                background: rgba(241, 245, 249, 0.6);
+                backdrop-filter: blur(10px);
                 padding: 4px;
-                border: 1px solid var(--sf-border);
-                border-radius: 8px;
+                border-radius: 12px;
             }
 
             .smart-feed-tab {
                 flex: 1;
-                min-width: 0;
-                padding: 8px 6px;
+                padding: 10px;
                 border: none;
                 background: transparent;
-                color: var(--sf-muted);
-                border-radius: 6px;
+                color: #64748b;
+                border-radius: 8px;
                 cursor: pointer;
-                font-size: 13px;
-                font-weight: 700;
-                line-height: 1.2;
-                white-space: nowrap;
-                transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+                font-size: 14px;
+                font-weight: 500;
+                transition: all 0.2s;
             }
 
             .smart-feed-tab:hover {
-                color: var(--sf-text);
-                background: rgba(255, 255, 255, 0.62);
+                color: #475569;
+                background: rgba(255, 255, 255, 0.5);
             }
 
             .smart-feed-tab.active {
-                background: var(--sf-surface-strong);
-                color: var(--sf-accent);
-                box-shadow: 0 1px 2px rgba(42, 39, 34, 0.08);
+                background: rgba(255, 255, 255, 0.9);
+                color: rgba(139, 162, 251, 1);
+                box-shadow: 0 2px 8px rgba(139, 162, 251, 0.15);
             }
 
             /* \u8868\u5355\u5143\u7D20 */
             .smart-feed-section {
-                margin-bottom: 16px;
+                margin-bottom: 20px;
             }
 
             .smart-feed-label {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                margin-bottom: 8px;
-                font-size: 13px;
-                font-weight: 700;
-                color: var(--sf-text);
-                line-height: 1.35;
+                margin-bottom: 10px;
+                font-size: 14px;
+                font-weight: 600;
+                color: #374151;
             }
 
             .smart-feed-help {
                 cursor: help;
                 width: 18px;
                 height: 18px;
-                border-radius: 8px;
-                background: var(--sf-accent-soft);
-                color: var(--sf-accent);
+                border-radius: 50%;
+                background: rgba(139, 162, 251, 0.2);
+                color: rgba(139, 162, 251, 1);
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
                 font-size: 12px;
                 font-weight: bold;
-                transition: background 0.2s ease, color 0.2s ease;
+                transition: all 0.2s;
             }
 
             .smart-feed-help:hover {
-                background: var(--sf-accent);
+                background: rgba(139, 162, 251, 0.9);
                 color: white;
+                transform: scale(1.1);
             }
 
             .smart-feed-input, .smart-feed-textarea, .smart-feed-select {
                 width: 100%;
-                padding: 10px 11px;
-                border: 1px solid var(--sf-border);
-                border-radius: 8px;
-                background: var(--sf-surface-strong);
-                color: var(--sf-text);
+                padding: 12px;
+                border: 2px solid rgba(229, 231, 235, 0.8);
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.8);
+                backdrop-filter: blur(10px);
+                color: #1f2937;
                 font-size: 14px;
-                line-height: 1.35;
-                transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+                transition: all 0.2s;
                 box-sizing: border-box;
             }
 
             .smart-feed-input:focus, .smart-feed-textarea:focus, .smart-feed-select:focus {
                 outline: none;
-                border-color: var(--sf-accent);
-                background: #ffffff;
-                box-shadow: 0 0 0 3px rgba(31, 122, 109, 0.12);
+                border-color: rgba(139, 162, 251, 0.8);
+                background: rgba(255, 255, 255, 0.95);
+                box-shadow: 0 0 0 3px rgba(139, 162, 251, 0.1);
             }
 
             .smart-feed-textarea {
-                min-height: 86px;
+                min-height: 80px;
                 resize: vertical;
                 font-family: inherit;
             }
 
             .smart-feed-button {
                 width: 100%;
-                padding: 11px 12px;
-                border: 1px solid transparent;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 700;
-                line-height: 1.2;
+                padding: 14px;
+                border: none;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 600;
                 cursor: pointer;
-                transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+                transition: all 0.2s;
                 margin-top: 10px;
             }
 
@@ -1505,47 +1448,45 @@ ${dossier}
             }
 
             .smart-feed-button-primary {
-                background: var(--sf-accent);
-                border-color: var(--sf-accent);
+                background: linear-gradient(135deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%);
                 color: white;
-                box-shadow: 0 6px 14px rgba(31, 122, 109, 0.15);
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
             }
 
             .smart-feed-button-primary:hover {
-                background: var(--sf-accent-strong);
-                border-color: var(--sf-accent-strong);
-                box-shadow: 0 8px 18px rgba(31, 122, 109, 0.22);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
             }
 
             .smart-feed-button-stop {
-                background: var(--sf-danger);
-                border-color: var(--sf-danger);
+                background: linear-gradient(135deg, rgba(239, 68, 68, 0.9) 0%, rgba(220, 38, 38, 0.9) 100%);
                 color: white;
             }
 
             .smart-feed-button-secondary {
-                background: var(--sf-surface-strong);
-                border-color: var(--sf-border);
-                color: var(--sf-text);
+                background: rgba(243, 244, 246, 0.8);
+                backdrop-filter: blur(10px);
+                color: #374151;
             }
 
             .smart-feed-button-secondary:hover {
-                background: var(--sf-surface-muted);
-                border-color: var(--sf-border-strong);
+                background: rgba(229, 231, 235, 0.9);
             }
 
             /* \u65E5\u5FD7 */
             .smart-feed-log {
-                background: #11100e;
-                border: 1px solid #2e2a24;
-                border-radius: 8px;
-                padding: 12px;
+                background: rgba(248, 250, 252, 0.8);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(226, 232, 240, 0.8);
+                border-radius: 10px;
+                padding: 15px;
                 max-height: 300px;
                 overflow-y: auto;
                 font-size: 12px;
-                font-family: "Cascadia Mono", "Consolas", "Courier New", monospace;
-                line-height: 1.6;
+                font-family: 'Courier New', monospace;
             }
+
+            /* \u{1F195} \u5728\u8FD9\u91CC\u6DFB\u52A0\u4EE5\u4E0B\u65B0\u6837\u5F0F\uFF08\u7EA6\u7B2C352\u884C\uFF09 */
 
             /* \u53EF\u6298\u53E0\u65E5\u5FD7\u5BB9\u5668 */
             .collapsible-log {
@@ -1565,9 +1506,9 @@ ${dossier}
                 display: none;
                 margin-top: 8px;
                 padding: 10px;
-                background: #1c1a17;
+                background: rgba(241, 245, 249, 0.9);
                 border-radius: 6px;
-                border: 1px solid #3b362f;
+                border: 1px solid rgba(226, 232, 240, 0.6);
                 font-size: 11px;
                 line-height: 1.6;
                 overflow-x: auto;
@@ -1579,19 +1520,20 @@ ${dossier}
             .collapsible-log .expand-btn {
                 margin-left: 8px;
                 padding: 2px 8px;
-                border: 1px solid rgba(227, 242, 237, 0.18);
-                background: rgba(31, 122, 109, 0.22);
-                color: #8fd1c4;
-                border-radius: 6px;
+                border: none;
+                background: rgba(139, 162, 251, 0.15);
+                color: rgba(139, 162, 251, 1);
+                border-radius: 4px;
                 cursor: pointer;
                 font-size: 11px;
                 font-weight: 600;
-                transition: background 0.2s ease, border-color 0.2s ease;
+                transition: all 0.2s;
                 vertical-align: middle;
             }
 
             .collapsible-log .expand-btn:hover {
-                background: rgba(31, 122, 109, 0.34);
+                background: rgba(139, 162, 251, 0.25);
+                transform: translateY(-1px);
             }
 
             /* \u5C55\u5F00\u72B6\u6001 */
@@ -1604,9 +1546,8 @@ ${dossier}
             }
 
             .collapsible-log.expanded .expand-btn {
-                background: rgba(189, 59, 49, 0.18);
-                color: #ffb5ae;
-                border-color: rgba(189, 59, 49, 0.28);
+                background: rgba(239, 68, 68, 0.15);
+                color: rgba(239, 68, 68, 1);
             }
 
             .collapsible-log.expanded .expand-btn::before {
@@ -1618,22 +1559,20 @@ ${dossier}
             }
 
             .smart-feed-log-item {
-                margin-bottom: 7px;
-                padding: 0 0 7px;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                margin-bottom: 8px;
+                padding: 6px 0;
+                border-bottom: 1px solid rgba(226, 232, 240, 0.5);
                 display: flex;
-                gap: 9px;
+                gap: 10px;
             }
 
             .smart-feed-log-time {
-                color: #8d8679;
+                color: #94a3b8;
                 flex-shrink: 0;
             }
 
             .smart-feed-log-text {
                 flex: 1;
-                min-width: 0;
-                word-break: break-word;
             }
 
             /* \u5176\u4ED6 */
@@ -1641,12 +1580,6 @@ ${dossier}
                 display: flex;
                 gap: 10px;
                 align-items: center;
-            }
-
-            .smart-feed-range-group > span {
-                color: var(--sf-muted);
-                font-size: 13px;
-                flex-shrink: 0;
             }
 
             .smart-feed-range-input {
@@ -1658,9 +1591,9 @@ ${dossier}
                 align-items: center;
                 gap: 10px;
                 padding: 12px;
-                background: var(--sf-surface-muted);
-                border: 1px solid var(--sf-border);
-                border-radius: 8px;
+                background: rgba(248, 250, 252, 0.8);
+                backdrop-filter: blur(10px);
+                border-radius: 10px;
             }
 
             .smart-feed-checkbox {
@@ -1670,19 +1603,18 @@ ${dossier}
             }
 
             .smart-feed-info-box {
-                background: var(--sf-warning-soft);
-                border: 1px solid #ead3a2;
-                border-left: 4px solid var(--sf-warning);
+                background: rgba(254, 243, 199, 0.8);
+                backdrop-filter: blur(10px);
+                border-left: 4px solid rgba(245, 158, 11, 0.8);
                 padding: 12px;
                 border-radius: 8px;
                 font-size: 13px;
-                color: #6f4b14;
-                line-height: 1.65;
-                margin-bottom: 12px;
+                color: #92400e;
+                margin-bottom: 15px;
             }
 
             .smart-feed-link {
-                color: var(--sf-info);
+                color: rgba(139, 162, 251, 1);
                 text-decoration: none;
                 font-weight: 600;
             }
@@ -1696,28 +1628,28 @@ ${dossier}
                 display: grid;
                 grid-template-columns: repeat(2, 1fr);
                 gap: 10px;
-                margin-bottom: 14px;
+                margin-bottom: 20px;
             }
 
             .smart-feed-stat-card {
-                background: var(--sf-surface-strong);
-                padding: 14px;
-                border-radius: 8px;
+                background: linear-gradient(135deg, rgba(240, 249, 255, 0.8) 0%, rgba(224, 242, 254, 0.8) 100%);
+                backdrop-filter: blur(10px);
+                padding: 15px;
+                border-radius: 12px;
                 text-align: center;
-                border: 1px solid var(--sf-border);
+                border: 1px solid rgba(186, 230, 253, 0.3);
             }
 
             .smart-feed-stat-value {
-                font-size: 23px;
+                font-size: 24px;
                 font-weight: 700;
-                color: var(--sf-accent);
-                line-height: 1;
+                color: #0284c7;
             }
 
             .smart-feed-stat-label {
                 font-size: 12px;
-                color: var(--sf-muted);
-                margin-top: 7px;
+                color: #64748b;
+                margin-top: 5px;
             }
 
             /* \u6027\u80FD\u4F18\u5316\uFF1A\u542F\u7528 GPU \u52A0\u901F */
@@ -1725,47 +1657,39 @@ ${dossier}
             .smart-feed-float-btn,
             .smart-feed-button {
                 will-change: transform;
+                transform: translateZ(0);
             }
 
             /* \u53EF\u6298\u53E0\u5E2E\u52A9\u6846 */
-            .smart-feed-info-box.collapsible-help-box {
-                margin-top: 10px;
-                background: var(--sf-warning-soft);
-                border-left-color: var(--sf-warning);
-            }
-
             .collapsible-help-box .help-header {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                gap: 12px;
                 cursor: pointer;
                 user-select: none;
             }
 
             .collapsible-help-box .help-toggle-btn {
-                padding: 5px 10px;
-                border: 1px solid #d7c18e;
-                background: #fffaf0;
-                color: #6f4b14;
+                padding: 4px 12px;
+                border: none;
+                background: rgba(139, 162, 251, 0.2);
+                color: rgba(139, 162, 251, 1);
                 border-radius: 6px;
                 cursor: pointer;
                 font-size: 12px;
                 font-weight: 600;
-                transition: background 0.2s ease, border-color 0.2s ease;
-                flex-shrink: 0;
+                transition: all 0.2s;
             }
 
             .collapsible-help-box .help-toggle-btn:hover {
-                background: #fff3cc;
-                border-color: var(--sf-warning);
+                background: rgba(139, 162, 251, 0.3);
+                transform: translateY(-1px);
             }
 
             .collapsible-help-box .help-content {
                 display: none;
                 margin-top: 12px;
                 padding-top: 12px;
-                border-top: 1px solid rgba(183, 121, 31, 0.22);
             }
 
             .collapsible-help-box.expanded .help-content {
@@ -1773,271 +1697,8 @@ ${dossier}
             }
 
             .collapsible-help-box.expanded .help-toggle-btn {
-                background: var(--sf-danger-soft);
-                color: var(--sf-danger);
-                border-color: #e6b6b0;
-            }
-
-            .smart-feed-guide-card {
-                padding: 12px;
-                border-radius: 8px;
-                margin-bottom: 14px;
-                border: 1px solid var(--sf-border);
-                border-left-width: 4px;
-                background: var(--sf-surface-strong);
-                color: var(--sf-text);
-                line-height: 1.8;
-            }
-
-            .smart-feed-guide-card strong {
-                color: inherit;
-            }
-
-            .smart-feed-guide-card.danger {
-                background: var(--sf-danger-soft);
-                border-color: #efcbc7;
-                border-left-color: var(--sf-danger);
-                color: #81241e;
-            }
-
-            .smart-feed-guide-card.info {
-                background: var(--sf-info-soft);
-                border-color: #bed8e8;
-                border-left-color: var(--sf-info);
-                color: #234f70;
-            }
-
-            .smart-feed-guide-card.accent {
-                background: var(--sf-accent-soft);
-                border-color: #bfded6;
-                border-left-color: var(--sf-accent);
-                color: #164f47;
-            }
-
-            .smart-feed-guide-card.warning {
-                background: var(--sf-warning-soft);
-                border-color: #ead3a2;
-                border-left-color: var(--sf-warning);
-                color: #6f4b14;
-            }
-
-            .smart-feed-guide-body {
-                margin-top: 8px;
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-guide-table-wrap {
-                background: rgba(255, 255, 255, 0.62);
-                padding: 12px;
-                border: 1px solid rgba(183, 121, 31, 0.2);
-                border-radius: 8px;
-                margin: 10px 0;
-                overflow-x: auto;
-            }
-
-            .smart-feed-guide-table {
-                width: 100%;
-                font-size: 13px;
-                line-height: 1.8;
-                border-collapse: collapse;
-            }
-
-            .smart-feed-guide-table td {
-                padding: 0;
-            }
-
-            .smart-feed-guide-step {
-                width: 72px;
-                vertical-align: top;
-                font-weight: 700;
-                color: var(--sf-accent);
-            }
-
-            .smart-feed-guide-spacer td {
-                padding: 8px 0;
-            }
-
-            .smart-feed-muted {
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-danger-text {
-                color: var(--sf-danger);
-            }
-
-            .smart-feed-tip-line {
-                margin-top: 14px;
-                padding: 10px;
-                background: var(--sf-accent-soft);
-                border: 1px solid #bfded6;
-                border-radius: 8px;
-                font-size: 12px;
-                text-align: center;
-                color: var(--sf-accent-strong);
-            }
-
-            .smart-feed-details {
-                margin-top: 14px;
-            }
-
-            .smart-feed-details summary {
-                cursor: pointer;
-                color: var(--sf-danger);
-                font-weight: 700;
-            }
-
-            .smart-feed-details-body {
-                margin-top: 10px;
-                padding-left: 15px;
-                font-size: 12px;
-                line-height: 1.8;
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-divider {
-                border: none;
-                border-top: 1px dashed #d4ccbf;
-                margin: 15px 0;
-            }
-
-            .smart-feed-note {
-                color: var(--sf-muted);
-                display: block;
-                margin-top: 5px;
-                font-size: 12px;
-                line-height: 1.5;
-            }
-
-            .smart-feed-log-toolbar {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 10px;
-                align-items: center;
-                justify-content: space-between;
-            }
-
-            .smart-feed-log-toggle {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 13px;
-                color: var(--sf-muted);
-                cursor: pointer;
-                user-select: none;
-            }
-
-            .smart-feed-log-toggle input {
-                width: 16px;
-                height: 16px;
-                cursor: pointer;
-                accent-color: var(--sf-accent);
-            }
-
-            .smart-feed-clear-log {
-                margin: 0;
-                padding: 8px 14px;
-                width: auto;
-                font-size: 13px;
-            }
-
-            .smart-feed-about-heading {
-                margin: 0 0 12px;
-                color: var(--sf-text);
-                font-size: 15px;
-                line-height: 1.35;
-            }
-
-            .smart-feed-about-card {
-                background: var(--sf-surface-strong);
-                border: 1px solid var(--sf-border);
-                padding: 14px;
-                border-radius: 8px;
-                font-size: 13px;
-                line-height: 1.8;
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-about-card.warning {
-                background: var(--sf-warning-soft);
-                border-color: #ead3a2;
-                color: #6f4b14;
-            }
-
-            .smart-feed-about-card.danger {
-                background: var(--sf-danger-soft);
-                border-color: #efcbc7;
-                color: #81241e;
-                font-size: 12px;
-            }
-
-            .smart-feed-about-card p {
-                margin: 0 0 10px;
-            }
-
-            .smart-feed-about-card p:last-child {
-                margin-bottom: 0;
-            }
-
-            .smart-feed-about-card hr {
-                border: none;
-                border-top: 1px solid var(--sf-border);
-                margin: 15px 0;
-            }
-
-            .smart-feed-feedback-note {
-                margin-top: 10px;
-                font-size: 12px;
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-toast {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: var(--sf-accent);
-                color: white;
-                padding: 12px 18px;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 700;
-                z-index: 9999999;
-                box-shadow: 0 10px 24px rgba(31, 122, 109, 0.22);
-                animation: smart-feed-slide-in 0.22s ease;
-            }
-
-            .smart-feed-toast.closing {
-                animation: smart-feed-slide-out 0.22s ease forwards;
-            }
-
-            @media (max-width: 460px) {
-                .smart-feed-panel {
-                    width: calc(100vw - 20px);
-                }
-
-                .smart-feed-body {
-                    padding: 12px;
-                }
-
-                .smart-feed-tabs {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                }
-
-                .smart-feed-action-row,
-                .smart-feed-range-group,
-                .smart-feed-log-toolbar {
-                    flex-direction: column;
-                    align-items: stretch;
-                }
-
-                .smart-feed-action-row .smart-feed-button,
-                .smart-feed-clear-log {
-                    width: 100%;
-                }
-
-                .smart-feed-stats {
-                    grid-template-columns: 1fr;
-                }
+                background: rgba(239, 68, 68, 0.2);
+                color: rgba(239, 68, 68, 1);
             }
         `);
       const config = loadConfig();
@@ -2118,92 +1779,92 @@ ${dossier}
                     </div>
 
                     <!-- \u{1F195} \u91CD\u8981\u63D0\u793A\u6846\uFF08\u53EF\u6298\u53E0\uFF09 -->
-                    <div class="smart-feed-info-box collapsible-help-box">
+                    <div class="smart-feed-info-box collapsible-help-box" style="margin-top: 10px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b;">
                         <div class="help-header">
                             <strong>\u{1F3AF} \u65B0\u624B 5 \u5206\u949F\u4E0A\u624B\u6307\u5357</strong>
                             <button class="help-toggle-btn">\u5C55\u5F00 \u25BC</button>
                         </div>
                         <div class="help-content">
                             <!-- \u7B2C\u4E00\u90E8\u5206\uFF1A\u51C6\u5907\u5DE5\u4F5C -->
-                            <div class="smart-feed-guide-card danger">
-                                <strong>\u{1F4CB} \u7B2C\u4E00\u6B21\u4F7F\u7528\u524D\uFF0C\u5148\u505A\u597D 4 \u4EF6\u4E8B</strong><br>
-                                <div class="smart-feed-guide-body">
-                                    1. \u6253\u5F00 <a href="https://www.douyin.com/" target="_blank" class="smart-feed-link">\u6296\u97F3\u7F51\u9875\u7248</a>\uFF0C\u8FDB\u5165\u5DE6\u4FA7\u83DC\u5355\u7684"<strong>\u63A8\u8350</strong>"\u9875\u9762<br>
+                            <div style="background: rgba(220, 38, 38, 0.1); border-left: 3px solid #dc2626; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                                <strong style="color: #dc2626;">\u{1F4CB} \u7B2C\u4E00\u6B21\u4F7F\u7528\u524D\uFF0C\u5148\u505A\u597D 4 \u4EF6\u4E8B</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8;">
+                                    1. \u6253\u5F00 <a href="https://www.douyin.com/" target="_blank" style="color: #2563eb;">\u6296\u97F3\u7F51\u9875\u7248</a>\uFF0C\u8FDB\u5165\u5DE6\u4FA7\u83DC\u5355\u7684"<strong>\u63A8\u8350</strong>"\u9875\u9762<br>
                                     2. \u5173\u95ED\u89C6\u9891\u53F3\u4E0B\u89D2"<strong>\u81EA\u52A8\u8FDE\u64AD</strong>"\uFF0C\u8BA9\u811A\u672C\u53EF\u4EE5\u81EA\u5DF1\u5207\u5230\u4E0B\u4E00\u4E2A\u89C6\u9891<br>
                                     3. \u4E0D\u8981\u4F7F\u7528\u65E0\u75D5\u6A21\u5F0F\uFF0C\u5426\u5219 API Key\u3001\u89C4\u5219\u548C\u9762\u677F\u4F4D\u7F6E\u53EF\u80FD\u4FDD\u5B58\u4E0D\u4E86<br>
                                     4. \u51C6\u5907\u4E00\u4E2A API Key\uFF1B\u6CA1\u6709\u7684\u8BDD\u53EF\u4EE5\u70B9\u4E0B\u9762\u94FE\u63A5\u53BB\u521B\u5EFA
                                 </div>
                             </div>
 
-                            <div class="smart-feed-guide-card info">
-                                <strong>\u{1F511} API Key \u53BB\u54EA\u91CC\u62FF\uFF1F</strong><br>
-                                <div class="smart-feed-guide-body">
-                                    <a href="https://platform.deepseek.com/api_keys" target="_blank" class="smart-feed-link">DeepSeek API Key</a>\uFF1A\u56FD\u5185\u65B0\u624B\u6700\u5BB9\u6613\u4E0A\u624B<br>
-                                    <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" class="smart-feed-link">Kimi API Key</a>\uFF1A\u56FD\u5185\u8BBF\u95EE\u7A33\u5B9A<br>
-                                    <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" class="smart-feed-link">Qwen / \u901A\u4E49\u5343\u95EE API Key</a>\uFF1A\u963F\u91CC\u4E91\u63A7\u5236\u53F0<br>
-                                    <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" class="smart-feed-link">GLM / \u667A\u8C31 API Key</a>\uFF1AGLM \u6A21\u578B\u63A7\u5236\u53F0<br>
-                                    <a href="https://aistudio.google.com/apikey" target="_blank" class="smart-feed-link">Google Gemini API Key</a>\uFF1AGemini \u6A21\u578B\u63A7\u5236\u53F0<br>
-                                    <span>API Key \u50CF\u5BC6\u7801\u4E00\u6837\uFF0C\u53EA\u7C98\u8D34\u5230\u672C\u811A\u672C\u91CC\uFF0C\u4E0D\u8981\u53D1\u7ED9\u522B\u4EBA\u3002</span>
+                            <div style="background: rgba(37, 99, 235, 0.08); border-left: 3px solid #2563eb; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                                <strong style="color: #1d4ed8;">\u{1F511} API Key \u53BB\u54EA\u91CC\u62FF\uFF1F</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8;">
+                                    <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: #2563eb;">DeepSeek API Key</a>\uFF1A\u56FD\u5185\u65B0\u624B\u6700\u5BB9\u6613\u4E0A\u624B<br>
+                                    <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" style="color: #2563eb;">Kimi API Key</a>\uFF1A\u56FD\u5185\u8BBF\u95EE\u7A33\u5B9A<br>
+                                    <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" style="color: #2563eb;">Qwen / \u901A\u4E49\u5343\u95EE API Key</a>\uFF1A\u963F\u91CC\u4E91\u63A7\u5236\u53F0<br>
+                                    <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color: #2563eb;">GLM / \u667A\u8C31 API Key</a>\uFF1AGLM \u6A21\u578B\u63A7\u5236\u53F0<br>
+                                    <a href="https://aistudio.google.com/apikey" target="_blank" style="color: #2563eb;">Google Gemini API Key</a>\uFF1AGemini \u6A21\u578B\u63A7\u5236\u53F0<br>
+                                    <span style="color: #64748b;">API Key \u50CF\u5BC6\u7801\u4E00\u6837\uFF0C\u53EA\u7C98\u8D34\u5230\u672C\u811A\u672C\u91CC\uFF0C\u4E0D\u8981\u53D1\u7ED9\u522B\u4EBA\u3002</span>
                                 </div>
                             </div>
                     
                             <!-- \u7B2C\u4E8C\u90E8\u5206\uFF1A\u914D\u7F6E\u6D41\u7A0B -->
                             <strong>\u2699\uFE0F \u6309\u987A\u5E8F\u5B8C\u6210 API \u914D\u7F6E</strong><br>
-                            <div class="smart-feed-guide-table-wrap">
-                                <table class="smart-feed-guide-table">
+                            <div style="background: rgba(255,255,255,0.7); padding: 12px; border-radius: 8px; margin: 10px 0;">
+                                <table style="width: 100%; font-size: 13px; line-height: 1.8;">
                                     <tr>
-                                        <td class="smart-feed-guide-step">\u6B65\u9AA4 1</td>
+                                        <td style="width: 72px; vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 1</td>
                                         <td>
                                             <strong>\u5148\u9009\u6216\u586B\u5199 API Base URL</strong><br>
-                                            <span class="smart-feed-muted">
+                                            <span style="color: #64748b;">
                                             \u2022 \u666E\u901A\u7528\u6237\uFF1A\u5728"API Base URL \u9884\u8BBE"\u91CC\u9009 DeepSeek\u3001GLM\u3001Gemini \u7B49<br>
                                             \u2022 \u672C\u5730/\u8F6C\u53D1\u670D\u52A1\uFF1A\u9009"<strong>\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API</strong>"\uFF0CBase URL \u53EF\u586B <code>http://127.0.0.1:8317</code><br>
                                             \u2022 \u5982\u679C\u4F60\u586B\u7684\u662F <code>https://example.com/v1</code>\uFF0C\u811A\u672C\u4F1A\u81EA\u52A8\u62FC\u51FA chat \u548C models \u63A5\u53E3
                                             </span>
                                         </td>
                                     </tr>
-                                    <tr class="smart-feed-guide-spacer"><td colspan="2"></td></tr>
+                                    <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
                                     <tr>
-                                        <td class="smart-feed-guide-step">\u6B65\u9AA4 2</td>
+                                        <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 2</td>
                                         <td>
                                             <strong>\u7C98\u8D34 API Key</strong><br>
-                                            <span class="smart-feed-muted">
+                                            <span style="color: #64748b;">
                                             \u2022 \u628A\u670D\u52A1\u5546\u63A7\u5236\u53F0\u521B\u5EFA\u7684 Key \u7C98\u8D34\u5230"API Key"\u8F93\u5165\u6846<br>
                                             \u2022 Key \u524D\u540E\u4E0D\u8981\u591A\u7A7A\u683C\uFF1B\u5982\u679C\u590D\u5236\u9519\u4E86\uFF0C\u6D4B\u8BD5\u8FDE\u63A5\u4F1A\u5931\u8D25<br>
                                             \u2022 \u672C\u811A\u672C\u53EA\u628A Key \u5B58\u5728\u6D4F\u89C8\u5668\u672C\u5730\uFF0C\u4E0D\u4E0A\u4F20\u5230\u672C\u9879\u76EE\u670D\u52A1\u5668
                                             </span>
                                         </td>
                                     </tr>
-                                    <tr class="smart-feed-guide-spacer"><td colspan="2"></td></tr>
+                                    <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
                                     <tr>
-                                        <td class="smart-feed-guide-step">\u6B65\u9AA4 3</td>
+                                        <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 3</td>
                                         <td>
                                             <strong>\u5FC5\u987B\u5148\u70B9"\u2460 \u83B7\u53D6\u6A21\u578B"</strong><br>
-                                            <span class="smart-feed-muted">
+                                            <span style="color: #64748b;">
                                             \u2022 \u811A\u672C\u4F1A\u8BFB\u53D6\u8FD9\u4E2A API \u80FD\u7528\u7684\u6A21\u578B\uFF0C\u5E76\u5237\u65B0"\u6A21\u578B\u9009\u62E9"\u4E0B\u62C9\u6846<br>
                                             \u2022 \u9884\u8BBE API \u4F1A\u81EA\u52A8\u9009\u4E00\u4E2A\u63A8\u8350\u6A21\u578B\uFF1B\u81EA\u5B9A\u4E49 API \u4F1A\u505C\u5728 <code>&lt;\u8BF7\u9009\u62E9\u6A21\u578B&gt;</code>\uFF0C\u8BF7\u624B\u52A8\u9009<br>
                                             \u2022 \u5982\u679C\u770B\u5230\u6A21\u578B\u540E\u9762\u6709"2026.5\uFF1A\u63A8\u8350\uFF0C\u514D\u8D39"\u4E4B\u7C7B\u5907\u6CE8\uFF0C\u4F18\u5148\u9009\u5B83
                                             </span>
                                         </td>
                                     </tr>
-                                    <tr class="smart-feed-guide-spacer"><td colspan="2"></td></tr>
+                                    <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
                                     <tr>
-                                        <td class="smart-feed-guide-step">\u6B65\u9AA4 4</td>
+                                        <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">\u6B65\u9AA4 4</td>
                                         <td>
                                             <strong>\u518D\u70B9"\u2461 \u6D4B\u8BD5\u8FDE\u63A5"</strong><br>
-                                            <span class="smart-feed-muted">
+                                            <span style="color: #64748b;">
                                             \u2022 \u770B\u5230\u7EFF\u8272\u6210\u529F\u63D0\u793A\u540E\uFF0C\u8BF4\u660E URL\u3001Key\u3001\u6A21\u578B\u4E09\u4EF6\u4E8B\u90FD\u901A\u4E86<br>
                                             \u2022 \u63A5\u7740\u9009\u62E9"\u9884\u8BBE\u6A21\u677F"\u6216\u586B\u5199\u504F\u597D\u89C4\u5219<br>
-                                            \u2022 <strong class="smart-feed-danger-text">\u6700\u540E\u70B9"\u{1F4BE} \u4FDD\u5B58\u5F53\u524D\u914D\u7F6E"</strong>\uFF0C\u518D\u70B9\u53F3\u4E0A\u89D2"\u25B6 \u5F00\u59CB"
+                                            \u2022 <strong style="color: #dc2626;">\u6700\u540E\u70B9"\u{1F4BE} \u4FDD\u5B58\u5F53\u524D\u914D\u7F6E"</strong>\uFF0C\u518D\u70B9\u53F3\u4E0A\u89D2"\u25B6 \u5F00\u59CB"
                                             </span>
                                         </td>
                                     </tr>
                                 </table>
                             </div>
 
-                            <div class="smart-feed-guide-card info">
-                                <strong>\u{1F916} \u6A21\u578B\u9009\u62E9\u5C0F\u6284</strong><br>
-                                <div class="smart-feed-guide-body">
+                            <div style="background: rgba(139, 92, 246, 0.08); border-left: 3px solid #7c3aed; padding: 12px; border-radius: 6px; margin: 15px 0;">
+                                <strong style="color: #6d28d9;">\u{1F916} \u6A21\u578B\u9009\u62E9\u5C0F\u6284</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8; color: #64748b;">
                                     \u2022 Gemini \u5F53\u524D\u6309\u6210\u672C\u542F\u53D1\u5F0F\u4F1A\u503E\u5411 <code>gemini-3.1-flash-lite-preview</code> \u8FD9\u7C7B\u65B0\u7248 flash-lite \u6A21\u578B<br>
                                     \u2022 GLM \u5F53\u524D\u6309\u6210\u672C\u542F\u53D1\u5F0F\u4F1A\u503E\u5411 <code>glm-4.7-flash</code> \u8FD9\u7C7B\u65B0\u7248 flash \u6A21\u578B\uFF1B\u5982\u679C\u5B83\u4E0D\u51FA\u73B0\u5728"\u83B7\u53D6\u6A21\u578B"\u7ED3\u679C\u91CC\uFF0C\u4F1A\u624B\u5DE5\u8865\u5230\u5217\u8868\u4E2D<br>
                                     \u2022 \u4E0D\u786E\u5B9A\u9009\u54EA\u4E2A\u65F6\uFF0C\u9009\u5E26"\u63A8\u8350\u3001\u514D\u8D39\u3001\u4F4E\u6210\u672C\u3001flash\u3001lite"\u5907\u6CE8\u7684\u6A21\u578B<br>
@@ -2212,20 +1873,20 @@ ${dossier}
                             </div>
                     
                             <!-- \u7B2C\u4E09\u90E8\u5206\uFF1A\u5F00\u59CB\u4F7F\u7528 -->
-                            <div class="smart-feed-guide-card accent">
-                                <strong>\u2705 \u914D\u7F6E\u5B8C\u6210\u540E</strong><br>
-                                <div class="smart-feed-guide-body">
+                            <div style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid #10b981; padding: 12px; border-radius: 6px; margin: 15px 0;">
+                                <strong style="color: #059669;">\u2705 \u914D\u7F6E\u5B8C\u6210\u540E</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8;">
                                     1\uFE0F\u20E3 \u70B9\u51FB\u9762\u677F\u53F3\u4E0A\u89D2"<strong>\u25B6 \u5F00\u59CB</strong>"\u6309\u94AE<br>
                                     2\uFE0F\u20E3 \u5207\u6362\u5230"<strong>\u8FD0\u884C\u65E5\u5FD7</strong>"\u6807\u7B7E\u9875\uFF0C\u770B\u5B9E\u65F6\u5904\u7406\u8FDB\u5EA6<br>
-                                    3\uFE0F\u20E3 <strong class="smart-feed-danger-text">\u4FDD\u6301\u6296\u97F3\u6807\u7B7E\u9875\u53EF\u89C1</strong><br>
+                                    3\uFE0F\u20E3 <strong style="color: #dc2626;">\u4FDD\u6301\u6296\u97F3\u6807\u7B7E\u9875\u53EF\u89C1</strong><br>
                                     4\uFE0F\u20E3 \u5EFA\u8BAE\u9996\u6B21\u8FD0\u884C 10-15 \u5206\u949F\uFF0C\u89C2\u5BDF\u6548\u679C\u540E\u518D\u8C03\u6574
                                 </div>
                             </div>
                     
                             <!-- \u7B2C\u56DB\u90E8\u5206\uFF1A\u5E38\u89C1\u9519\u8BEF -->
-                            <details class="smart-feed-details">
-                                <summary>\u274C \u9047\u5230\u95EE\u9898\uFF1F\u70B9\u51FB\u67E5\u770B\u5E38\u89C1\u9519\u8BEF</summary>
-                                <div class="smart-feed-details-body">
+                            <details style="margin-top: 15px;">
+                                <summary style="cursor: pointer; color: #dc2626; font-weight: bold;">\u274C \u9047\u5230\u95EE\u9898\uFF1F\u70B9\u51FB\u67E5\u770B\u5E38\u89C1\u9519\u8BEF</summary>
+                                <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
                                     <strong>Q: \u70B9"\u6D4B\u8BD5\u8FDE\u63A5"\u5931\u8D25\uFF1F</strong><br>
                                     A: \u2460 \u5148\u70B9"\u2460 \u83B7\u53D6\u6A21\u578B" \u2461 \u9009\u4E2D\u4E00\u4E2A\u6A21\u578B \u2462 \u68C0\u67E5 Key \u524D\u540E\u6709\u6CA1\u6709\u591A\u4F59\u7A7A\u683C \u2463 \u786E\u8BA4 API Base URL \u80FD\u8BBF\u95EE<br><br>
 
@@ -2236,13 +1897,13 @@ ${dossier}
                                     A: \u2460 \u786E\u8BA4\u5728"\u63A8\u8350"\u9875\u9762 \u2461 \u5173\u95ED\u4E86\u81EA\u52A8\u8FDE\u64AD \u2462 \u5237\u65B0\u9875\u9762\u91CD\u8BD5<br><br>
                     
                                     <strong>\u5176\u4ED6\u95EE\u9898\uFF1F</strong><br>
-                                    \u53D1\u90AE\u4EF6\u5230 <a href="mailto:1987892914@qq.com" class="smart-feed-link">1987892914@qq.com</a>\uFF0C\u8BB0\u5F97\u9644\u4E0A"\u8FD0\u884C\u65E5\u5FD7"\u622A\u56FE
+                                    \u53D1\u90AE\u4EF6\u5230 <a href="mailto:1987892914@qq.com" style="color: #2563eb;">1987892914@qq.com</a>\uFF0C\u8BB0\u5F97\u9644\u4E0A"\u8FD0\u884C\u65E5\u5FD7"\u622A\u56FE
                                 </div>
                             </details>
                     
-                            <hr class="smart-feed-divider">
+                            <hr style="border: none; border-top: 1px dashed #cbd5e1; margin: 15px 0;">
                     
-                            <div class="smart-feed-tip-line">
+                            <div style="margin-top: 15px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 12px; text-align: center; color: #7c3aed;">
                                 \u{1F4A1} <strong>\u5C0F\u8D34\u58EB</strong>\uFF1A\u987A\u5E8F\u8BB0\u4F4F\u5C31\u884C\uFF1ABase URL \u2192 API Key \u2192 \u2460 \u83B7\u53D6\u6A21\u578B \u2192 \u9009\u62E9\u6A21\u578B \u2192 \u2461 \u6D4B\u8BD5\u8FDE\u63A5 \u2192 \u4FDD\u5B58 \u2192 \u5F00\u59CB
                             </div>
                         </div>
@@ -2272,7 +1933,7 @@ ${dossier}
                     <div class="smart-feed-section">
                         <div class="smart-feed-label">\u{1F511} API Key</div>
                         <input type="text" class="smart-feed-input" id="apiKey" placeholder="\u8F93\u5165\u4F60\u7684 API Key\uFF08\u957F\u4E32\u82F1\u6587\uFF09">
-                        <small class="smart-feed-note">
+                        <small style="color: #64748b; display: block; margin-top: 5px;">
                             \u{1F4A1} \u5728\u5404\u5E73\u53F0\u7684\u63A7\u5236\u53F0/\u8BBE\u7F6E\u9875\u9762\u521B\u5EFA\u540E\uFF0C\u7C98\u8D34\u5230\u8FD9\u91CC
                         </small>
                     </div>
@@ -2286,7 +1947,7 @@ ${dossier}
                         <select class="smart-feed-select" id="modelSelect">
                             <!-- \u7531 JavaScript \u52A8\u6001\u751F\u6210 -->
                         </select>
-                        <small class="smart-feed-note">
+                        <small style="color: #94a3b8; display: block; margin-top: 5px; font-size: 12px;">
                             \u2699\uFE0F \u9884\u8BBE\u53EA\u4F1A\u56DE\u586B Base URL \u548C\u9ED8\u8BA4\u6A21\u578B\uFF1B\u8BF7\u6C42\u59CB\u7EC8\u6309 OpenAI \u517C\u5BB9\u683C\u5F0F\u53D1\u9001
                         </small>
                     </div>
@@ -2353,13 +2014,13 @@ ${dossier}
                             <span>\u5230</span>
                             <input type="number" class="smart-feed-input smart-feed-range-input" id="watchMax" value="${config.watchBeforeLike[1]}" min="0" max="30">
                         </div>
-                        <small class="smart-feed-note">\u6A21\u62DF\u771F\u4EBA\u89C2\u770B\u4E00\u6BB5\u65F6\u95F4\u540E\u518D\u64CD\u4F5C</small>
+                        <small style="color: #64748b;">\u6A21\u62DF\u771F\u4EBA\u89C2\u770B\u4E00\u6BB5\u65F6\u95F4\u540E\u518D\u64CD\u4F5C</small>
                     </div>
 
                     <div class="smart-feed-section">
                         <div class="smart-feed-label">\u5185\u5BB9\u8DF3\u8FC7\u6982\u7387\uFF08%\uFF09</div>
                         <input type="number" class="smart-feed-input" id="skipProbability" value="${config.skipProbability}" min="0" max="50">
-                        <small class="smart-feed-note">\u968F\u673A\u8DF3\u8FC7\u90E8\u5206\u89C6\u9891\uFF0C\u907F\u514D\u6BCF\u4E2A\u90FD\u64CD\u4F5C</small>
+                        <small style="color: #64748b;">\u968F\u673A\u8DF3\u8FC7\u90E8\u5206\u89C6\u9891\uFF0C\u907F\u514D\u6BCF\u4E2A\u90FD\u64CD\u4F5C</small>
                     </div>
 
                     <div class="smart-feed-section">
@@ -2390,12 +2051,13 @@ ${dossier}
                     </div>
 
                     <!-- \u{1F195} \u65B0\u589E\uFF1A\u65E5\u5FD7\u63A7\u5236\u680F -->
-                    <div class="smart-feed-log-toolbar">
-                        <label class="smart-feed-log-toggle">
-                            <input type="checkbox" id="verboseLog">
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center; justify-content: space-between;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; cursor: pointer; user-select: none;">
+                            <input type="checkbox" id="verboseLog" style="width: 16px; height: 16px; cursor: pointer;">
                             <span>\u663E\u793A\u8BE6\u7EC6\u8C03\u8BD5\u4FE1\u606F</span>
                         </label>
-                        <button class="smart-feed-button smart-feed-button-secondary smart-feed-clear-log" id="clearLog">
+                        <button class="smart-feed-button smart-feed-button-secondary" id="clearLog"
+                                style="margin: 0; padding: 8px 16px; width: auto; font-size: 13px;">
                             \u{1F5D1}\uFE0F \u6E05\u7A7A\u65E5\u5FD7
                         </button>
                     </div>
@@ -2411,8 +2073,8 @@ ${dossier}
                 <!-- \u5173\u4E8E -->
                 <div class="smart-feed-tab-content" data-content="about" style="display: none;">
                     <div class="smart-feed-section">
-                        <h3 class="smart-feed-about-heading">\u{1F4D6} \u4F7F\u7528\u8BF4\u660E</h3>
-                        <div class="smart-feed-about-card">
+                        <h3 style="margin: 0 0 15px 0; color: #1f2937;">\u{1F4D6} \u4F7F\u7528\u8BF4\u660E</h3>
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 10px; font-size: 13px; line-height: 1.8; color: #475569;">
                             <p><strong>\u{1F680} \u96F6\u57FA\u7840\u542F\u52A8\u987A\u5E8F</strong></p>
                             <p>1. \u6253\u5F00 <a href="https://www.douyin.com/" target="_blank" class="smart-feed-link">\u6296\u97F3\u7F51\u9875\u7248</a>\uFF0C\u8FDB\u5165"\u63A8\u8350"\u9875\u9762\u5E76\u5173\u95ED\u81EA\u52A8\u8FDE\u64AD\u3002</p>
                             <p>2. \u5728"\u57FA\u7840\u8BBE\u7F6E"\u91CC\u9009\u62E9 API Base URL \u9884\u8BBE\uFF1B\u5982\u679C\u4F60\u7528\u672C\u5730\u4EE3\u7406\u6216\u7B2C\u4E09\u65B9\u8F6C\u53D1\uFF0C\u9009\u62E9"\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API"\u3002</p>
@@ -2420,7 +2082,7 @@ ${dossier}
                             <p>4. \u5148\u70B9 <strong>\u2460 \u70B9\u51FB\u83B7\u53D6\u6A21\u578B</strong>\uFF0C\u7B49\u6A21\u578B\u5217\u8868\u5237\u65B0\u540E\u9009\u62E9\u6A21\u578B\u3002</p>
                             <p>5. \u518D\u70B9 <strong>\u2461 \u70B9\u51FB\u6D4B\u8BD5\u8FDE\u63A5</strong>\u3002\u6210\u529F\u540E\u9009\u62E9\u9884\u8BBE\u6A21\u677F\u6216\u586B\u5199\u504F\u597D\u89C4\u5219\uFF0C\u4FDD\u5B58\u914D\u7F6E\uFF0C\u6700\u540E\u70B9\u53F3\u4E0A\u89D2"\u25B6 \u5F00\u59CB"\u3002</p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>\u{1F511} \u5982\u4F55\u83B7\u53D6 API Key</strong></p>
                             <p>\u2022 <a href="https://platform.deepseek.com/api_keys" target="_blank" class="smart-feed-link">DeepSeek \u5B98\u7F51</a> - \u65B0\u624B\u5BB9\u6613\u4E0A\u624B\uFF0C\u4EF7\u683C\u4F4E</p>
@@ -2430,7 +2092,7 @@ ${dossier}
                             <p>\u2022 <a href="https://aistudio.google.com/apikey" target="_blank" class="smart-feed-link">Google AI Studio</a> - Gemini API Key</p>
                             <p>\u2022 \u7B2C\u4E09\u65B9\u8F6C\u53D1\u6216\u672C\u5730\u670D\u52A1\uFF1A\u9009\u62E9"\u81EA\u5B9A\u4E49 OpenAI \u517C\u5BB9 API"\uFF0C\u4F8B\u5982 <code>http://127.0.0.1:8317</code></p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>\u{1F916} \u6A21\u578B\u600E\u4E48\u9009</strong></p>
                             <p>\u2022 \u5148\u70B9 <strong>\u2460 \u70B9\u51FB\u83B7\u53D6\u6A21\u578B</strong>\uFF0C\u811A\u672C\u4F1A\u8C03\u7528 OpenAI \u517C\u5BB9\u7684 <code>/models</code> \u63A5\u53E3\u8BFB\u53D6\u53EF\u7528\u6A21\u578B\u3002</p>
@@ -2439,7 +2101,7 @@ ${dossier}
                             <p>\u2022 \u6709\u4E9B\u6A21\u578B\u80FD\u6B63\u5E38\u8C03\u7528\uFF0C\u4F46\u670D\u52A1\u5546\u7684 <code>/models</code> \u4E0D\u8FD4\u56DE\uFF1B\u672C\u9879\u76EE\u4F1A\u5728\u914D\u7F6E\u91CC\u624B\u5DE5\u8865\u5145\uFF0C\u4F8B\u5982 <code>glm-4.7-flash</code>\u3002</p>
                             <p>\u2022 \u672C\u5DE5\u5177\u53EA\u505A\u77ED\u6587\u672C\u5224\u65AD\uFF0C\u4F18\u5148\u9009\u62E9\u4FBF\u5B9C\u3001\u5FEB\u901F\u3001\u7A33\u5B9A\u7684 chat \u6A21\u578B\uFF0C\u4E0D\u9700\u8981\u56FE\u50CF\u3001\u97F3\u9891\u3001embedding\u3001rerank \u7C7B\u6A21\u578B\u3002</p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>\u26A0\uFE0F \u540E\u53F0\u6302\u673A\u8BF4\u660E</strong></p>
                             <p>\u2022 \u672C\u811A\u672C<strong>\u9700\u8981\u4FDD\u6301\u6296\u97F3\u6807\u7B7E\u9875\u53EF\u89C1</strong>\uFF0C\u4E0D\u8981\u5207\u6362\u5230\u5176\u4ED6\u6D4F\u89C8\u5668\u6807\u7B7E\u9875\u3002</p>
@@ -2447,7 +2109,7 @@ ${dossier}
                             <p>\u2022 \u539F\u56E0\uFF1A\u5FEB\u6377\u952E\u64CD\u4F5C\u3001\u89C6\u9891\u5207\u6362\u548C DOM \u76D1\u542C\u90FD\u4F9D\u8D56\u9875\u9762\u5904\u4E8E\u6D3B\u8DC3\u72B6\u6001\u3002</p>
                             <p>\u2022 \u5EFA\u8BAE\u4F7F\u7528\u72EC\u7ACB\u6D4F\u89C8\u5668\u7A97\u53E3\u8FD0\u884C\uFF0C\u9996\u6B21\u8FD0\u884C 10-15 \u5206\u949F\uFF0C\u89C2\u5BDF\u63A8\u8350\u6D41\u53D8\u5316\u540E\u518D\u8C03\u6574\u89C4\u5219\u3002</p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>\u2753 \u5E38\u89C1\u95EE\u9898</strong></p>
                             <p><strong>Q: \u4EF7\u683C\u5927\u6982\u591A\u5C11\uFF1F</strong></p>
@@ -2462,7 +2124,7 @@ ${dossier}
                             <p><strong>Q: \u51FA\u73B0 400 / 401 / 422 \u9519\u8BEF\u600E\u4E48\u529E\uFF1F</strong></p>
                             <p>A: 400/422 \u591A\u534A\u662F Base URL\u3001\u6A21\u578B\u540D\u6216\u8BF7\u6C42\u683C\u5F0F\u4E0D\u5339\u914D\uFF1B401 \u591A\u534A\u662F Key \u9519\u4E86\u3001\u8FC7\u671F\u4E86\u6216\u6CA1\u6743\u9650\u3002\u6309\u987A\u5E8F\u68C0\u67E5\uFF1ABase URL \u2192 API Key \u2192 \u83B7\u53D6\u6A21\u578B \u2192 \u9009\u62E9\u6A21\u578B \u2192 \u6D4B\u8BD5\u8FDE\u63A5\u3002</p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>\u{1F527} \u5F00\u53D1\u8005\u7EF4\u62A4\u8BF4\u660E</strong></p>
                             <p>\u2022 <strong>\u7EDF\u4E00\u914D\u7F6E\u4F4D\u7F6E</strong>\uFF1A\u6240\u6709 Base URL \u9884\u8BBE\u96C6\u4E2D\u5728 <code>CONFIG.apiProviders</code></p>
@@ -2479,20 +2141,20 @@ ${dossier}
                     </div>
 
                     <div class="smart-feed-section">
-                        <h3 class="smart-feed-about-heading">\u{1F41B} \u53CD\u9988\u4E0E\u652F\u6301</h3>
-                        <div class="smart-feed-about-card warning">
+                        <h3 style="margin: 0 0 15px 0; color: #1f2937;">\u{1F41B} \u53CD\u9988\u4E0E\u652F\u6301</h3>
+                        <div style="background: #fef3c7; padding: 15px; border-radius: 10px; font-size: 13px; line-height: 1.8; color: #92400e;">
                             <p><strong>\u672C\u5DE5\u5177\u53EF\u80FD\u56E0\u6296\u97F3\u66F4\u65B0\u800C\u5931\u6548\uFF01</strong></p>
                             <p>\u9047\u5230\u95EE\u9898\u8BF7\u53CA\u65F6\u53CD\u9988\uFF0C\u5E2E\u52A9\u6211\u4EEC\u6539\u8FDB\uFF1A</p>
                             <p>\u2022 \u{1F4E7} \u90AE\u4EF6\u53CD\u9988\uFF1A<a href="mailto:1987892914@qq.com" class="smart-feed-link">1987892914@qq.com</a></p>
                             <p>\u2022 \u{1F31F} GitHub\u9879\u76EE\uFF1A<a href="https://github.com/baianjo/Douyin-Smart-Feed-Assistant" target="_blank" class="smart-feed-link">\u70B9\u51FB\u8BBF\u95EE</a></p>
                             <p>\u2022 \u5982\u679C\u89C9\u5F97\u6709\u7528\uFF0C\u8BF7\u7ED9\u9879\u76EE\u70B9\u4E2A\u2B50Star\u652F\u6301\u4E00\u4E0B\uFF01</p>
-                            <p class="smart-feed-feedback-note">\u53CD\u9988\u65F6\u8BF7\u9644\u4E0A\u9519\u8BEF\u622A\u56FE\u548C\u65E5\u5FD7\uFF0C\u65B9\u4FBF\u5FEB\u901F\u5B9A\u4F4D\u95EE\u9898</p>
+                            <p style="margin-top: 10px; font-size: 12px; color: #78716c;">\u53CD\u9988\u65F6\u8BF7\u9644\u4E0A\u9519\u8BEF\u622A\u56FE\u548C\u65E5\u5FD7\uFF0C\u65B9\u4FBF\u5FEB\u901F\u5B9A\u4F4D\u95EE\u9898</p>
                         </div>
                     </div>
 
                     <div class="smart-feed-section">
-                        <h3 class="smart-feed-about-heading">\u2696\uFE0F \u514D\u8D23\u58F0\u660E</h3>
-                        <div class="smart-feed-about-card danger">
+                        <h3 style="margin: 0 0 15px 0; color: #1f2937;">\u2696\uFE0F \u514D\u8D23\u58F0\u660E</h3>
+                        <div style="background: #fee2e2; padding: 15px; border-radius: 10px; font-size: 12px; line-height: 1.8; color: #991b1b;">
                             <p>\u2022 \u672C\u5DE5\u5177\u4EC5\u4F9B\u5B66\u4E60\u548C\u4E2A\u4EBA\u7814\u7A76\u4F7F\u7528</p>
                             <p>\u2022 \u4F7F\u7528\u672C\u5DE5\u5177\u53EF\u80FD\u8FDD\u53CD\u6296\u97F3\u670D\u52A1\u6761\u6B3E</p>
                             <p>\u2022 \u56E0\u4F7F\u7528\u672C\u5DE5\u5177\u5BFC\u81F4\u7684\u8D26\u53F7\u95EE\u9898\uFF0C\u4F5C\u8005\u4E0D\u627F\u62C5\u4EFB\u4F55\u8D23\u4EFB</p>
@@ -2516,12 +2178,24 @@ ${dossier}
       const config = loadConfig();
       function showSaveNotice() {
         const notice = document.createElement("div");
-        notice.className = "smart-feed-toast";
+        notice.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #10b981;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                z-index: 9999999;
+                box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+                animation: slideIn 0.3s ease;
+            `;
         notice.textContent = "\u2713 \u914D\u7F6E\u5DF2\u4FDD\u5B58";
         document.body.appendChild(notice);
         setTimeout(() => {
-          notice.classList.add("closing");
-          setTimeout(() => notice.remove(), 220);
+          notice.style.animation = "slideOut 0.3s ease";
+          setTimeout(() => notice.remove(), 300);
         }, 2e3);
       }
       function getModelControlValue() {
@@ -3033,6 +2707,7 @@ ${dossier}
       const saveBtn = document.createElement("button");
       saveBtn.className = "smart-feed-button smart-feed-button-secondary";
       saveBtn.textContent = "\u{1F4BE} \u4FDD\u5B58\u5F53\u524D\u914D\u7F6E";
+      saveBtn.style.marginTop = "10px";
       saveBtn.onclick = () => saveConfigDebounced(true);
       const basicContent = document.querySelector('[data-content="basic"]');
       if (basicContent) {
@@ -3070,10 +2745,10 @@ ${dossier}
       const item = document.createElement("div");
       item.className = "smart-feed-log-item";
       const colors = {
-        info: "#b7afa1",
-        success: "#72c7a9",
-        warning: "#f0bf63",
-        error: "#ff8a80"
+        info: "#64748b",
+        success: "#10b981",
+        warning: "#f59e0b",
+        error: "#ef4444"
       };
       const displayText = message;
       const isLongText = message.length > 300;

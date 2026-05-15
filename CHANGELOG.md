@@ -2,11 +2,16 @@
 
 ## Unreleased
 
+## 2.3.4 - 2026-05-15
+
+- Roll back the in-page assistant panel styling to the 2.3.2 appearance after user feedback on the 2.3.3 redesign.
+- Keep the userscript version moving forward so clients that installed 2.3.3 can receive the rollback update.
+- Rebuild the userscript release artifact from source.
+
 ## 2.3.3 - 2026-05-15
 
-- Restyle the in-page assistant panel as a quieter workbench UI with neutral surfaces, clearer borders, restrained shadows, and state-color accents.
-- Standardize the setup guide, log toolbar, stats cards, about sections, and save toast styling while preserving the existing copy and interactions.
-- Rebuild the userscript release artifact from source.
+- Restyled the in-page assistant panel as a quieter workbench UI.
+- Standardized guide, log, stats, about, and save toast styling while preserving the existing copy and interactions.
 
 ## 2.3.2 - 2026-05-06
 

@@ -10,135 +10,88 @@ const UI = {
     create: () => {
         // 添加样式
         GM_addStyle(`
-            .smart-feed-panel,
-            .smart-feed-panel *,
-            .smart-feed-float-btn {
-                box-sizing: border-box;
-            }
-
-            .smart-feed-panel,
-            .smart-feed-toast {
-                --sf-surface: #fbfaf7;
-                --sf-surface-strong: #ffffff;
-                --sf-surface-muted: #f2f0ea;
-                --sf-border: #ddd8cd;
-                --sf-border-strong: #c9c2b5;
-                --sf-text: #25231f;
-                --sf-muted: #6f6a61;
-                --sf-soft: #8b8579;
-                --sf-accent: #1f7a6d;
-                --sf-accent-strong: #176458;
-                --sf-accent-soft: #e3f2ed;
-                --sf-warning: #b7791f;
-                --sf-warning-soft: #fff5db;
-                --sf-danger: #bd3b31;
-                --sf-danger-soft: #fff0ee;
-                --sf-info: #2f6f9f;
-                --sf-info-soft: #edf6fb;
-                --sf-shadow: 0 18px 44px rgba(42, 39, 34, 0.18);
-                --sf-radius: 8px;
-            }
-
-            /* 悬浮按钮 - 安静工具入口 */
+            /* 悬浮按钮 - 水晶风格 */
             .smart-feed-float-btn {
                 position: fixed;
-                width: 52px;
-                height: 52px;
-                border-radius: 8px;
-                background: #25231f;
-                box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
-                border: 1px solid rgba(255, 255, 255, 0.08);
+                width: 60px;
+                height: 60px;
+                border-radius: 50%;
+                background: linear-gradient(135deg, rgba(139, 162, 251, 0.85) 0%, rgba(185, 163, 251, 0.85) 100%);
+                backdrop-filter: blur(10px);
+                box-shadow: 0 8px 32px rgba(139, 162, 251, 0.3),
+                            inset 0 1px 0 rgba(255, 255, 255, 0.4);
+                border: 1px solid rgba(255, 255, 255, 0.2);
                 cursor: move;
                 z-index: 999999;
                 display: flex;
                 align-items: center;
                 justify-content: center;
-                font-size: 22px;
-                transition: background 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+                font-size: 24px;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
                 user-select: none;
             }
 
             .smart-feed-float-btn:hover {
-                background: #1f7a6d;
-                box-shadow: 0 14px 34px rgba(31, 122, 109, 0.26);
-                border-color: rgba(255, 255, 255, 0.18);
+                transform: scale(1.05);
+                box-shadow: 0 12px 40px rgba(139, 162, 251, 0.4),
+                            inset 0 1px 0 rgba(255, 255, 255, 0.5);
             }
 
             .smart-feed-float-btn.running {
-                background: #1f7a6d;
-                animation: smart-feed-running-pulse 2.4s ease-in-out infinite;
+                background: linear-gradient(135deg, rgba(99, 230, 190, 0.85) 0%, rgba(56, 178, 172, 0.85) 100%);
+                animation: pulse-glow 2s infinite;
             }
 
-            @keyframes smart-feed-running-pulse {
+            @keyframes pulse-glow {
                 0%, 100% {
-                    box-shadow: 0 12px 30px rgba(31, 122, 109, 0.24);
+                    box-shadow: 0 8px 32px rgba(99, 230, 190, 0.3),
+                                inset 0 1px 0 rgba(255, 255, 255, 0.4);
                 }
                 50% {
-                    box-shadow: 0 12px 38px rgba(31, 122, 109, 0.42);
+                    box-shadow: 0 12px 48px rgba(99, 230, 190, 0.6),
+                                inset 0 1px 0 rgba(255, 255, 255, 0.5);
                 }
             }
 
-            @keyframes smart-feed-slide-in {
-                from {
-                    opacity: 0;
-                    transform: translateY(-8px);
-                }
-                to {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-            }
-
-            @keyframes smart-feed-slide-out {
-                from {
-                    opacity: 1;
-                    transform: translateY(0);
-                }
-                to {
-                    opacity: 0;
-                    transform: translateY(-8px);
-                }
-            }
-
-            /* 主面板 - 安静工具台 */
+            /* 主面板 - 毛玻璃效果 */
             .smart-feed-panel {
                 position: fixed;
                 width: 420px;
-                max-width: calc(100vw - 20px);
                 max-height: 80vh;
-                background: var(--sf-surface);
-                border: 1px solid var(--sf-border);
-                border-radius: var(--sf-radius);
-                box-shadow: var(--sf-shadow);
+                background: rgba(255, 255, 255, 0.5);
+                backdrop-filter: blur(20px) saturate(180%);
+                -webkit-backdrop-filter: blur(20px) saturate(180%);
+                border-radius: 20px;
+                box-shadow: 0 20px 60px rgba(100, 100, 150, 0.15),
+                            0 0 0 1px rgba(255, 255, 255, 0.3);
                 z-index: 999998;
-                font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans SC", sans-serif;
-                color: var(--sf-text);
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+                color: #1f2937;
                 overflow: hidden;
-                transition: opacity 0.2s ease, box-shadow 0.2s ease;
+                transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
-            /* 顶部标题栏 + 集成开始按钮 */
+            /* 顶部标题栏 - 水晶风格 + 集成开始按钮 */
             .smart-feed-header {
-                padding: 12px 14px;
-                background: var(--sf-surface-strong);
-                border-bottom: 1px solid var(--sf-border);
+                padding: 16px 20px;
+                background: linear-gradient(135deg, rgba(139, 162, 251, 0.65) 0%, rgba(185, 163, 251, 0.65) 100%);
+                backdrop-filter: blur(10px);
+                border-bottom: 1px solid rgba(255, 255, 255, 0.2);
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                gap: 12px;
                 cursor: move;
                 user-select: none;
             }
 
             .smart-feed-title {
-                min-width: 0;
-                font-size: 15px;
+                font-size: 16px;
                 font-weight: 700;
-                color: var(--sf-text);
+                color: rgba(255, 255, 255, 0.95);
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                line-height: 1.3;
+                text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
             }
 
             /* 顶部按钮组 */
@@ -146,69 +99,63 @@ const UI = {
                 display: flex;
                 gap: 8px;
                 align-items: center;
-                flex-shrink: 0;
             }
 
             /* 开始运行按钮（在顶部） */
             .smart-feed-start-btn {
-                min-width: 76px;
-                padding: 8px 14px;
-                border-radius: 8px;
-                border: 1px solid var(--sf-accent);
-                background: var(--sf-accent);
-                color: #ffffff;
-                font-size: 13px;
-                font-weight: 700;
-                line-height: 1;
+                padding: 8px 16px;
+                border-radius: 10px;
+                border: none;
+                background: rgba(255, 255, 255, 0.9);
+                color: #10b981;
+                font-size: 14px;
+                font-weight: 600;
                 cursor: pointer;
-                transition: background 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-                box-shadow: 0 6px 14px rgba(31, 122, 109, 0.18);
+                transition: all 0.2s;
+                box-shadow: 0 2px 8px rgba(16, 185, 129, 0.2);
             }
 
             .smart-feed-start-btn:hover {
-                background: var(--sf-accent-strong);
-                border-color: var(--sf-accent-strong);
-                box-shadow: 0 8px 18px rgba(31, 122, 109, 0.24);
+                background: rgba(255, 255, 255, 1);
+                transform: translateY(-1px);
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
             }
 
             .smart-feed-start-btn.running {
-                background: var(--sf-danger);
-                border-color: var(--sf-danger);
+                background: rgba(239, 68, 68, 0.9);
                 color: white;
             }
 
             .smart-feed-start-btn.running:hover {
-                background: #9f3028;
-                border-color: #9f3028;
+                background: rgba(239, 68, 68, 1);
             }
 
             .smart-feed-close {
-                width: 30px;
-                height: 30px;
-                border-radius: 8px;
-                background: var(--sf-surface-muted);
-                border: 1px solid var(--sf-border);
-                color: var(--sf-muted);
-                font-size: 19px;
-                line-height: 1;
+                width: 32px;
+                height: 32px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.25);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+                color: rgba(255, 255, 255, 0.95);
+                font-size: 20px;
                 cursor: pointer;
-                transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+                transition: all 0.2s;
                 display: flex;
                 align-items: center;
                 justify-content: center;
             }
 
             .smart-feed-close:hover {
-                background: var(--sf-danger-soft);
-                border-color: #e6b6b0;
-                color: var(--sf-danger);
+                background: rgba(255, 255, 255, 0.35);
+                transform: rotate(90deg);
             }
 
             .smart-feed-body {
                 max-height: calc(80vh - 70px);
                 overflow-y: auto;
-                padding: 14px;
-                background: var(--sf-surface);
+                padding: 20px;
+                background: rgba(255, 255, 255, 0.5);
             }
 
             .smart-feed-body::-webkit-scrollbar {
@@ -216,124 +163,120 @@ const UI = {
             }
 
             .smart-feed-body::-webkit-scrollbar-thumb {
-                background: #c8c0b3;
+                background: rgba(139, 162, 251, 0.3);
                 border-radius: 3px;
             }
 
             .smart-feed-body::-webkit-scrollbar-thumb:hover {
-                background: #aaa194;
+                background: rgba(139, 162, 251, 0.5);
             }
 
             /* 标签页 */
             .smart-feed-tabs {
                 display: flex;
-                gap: 4px;
-                margin-bottom: 14px;
-                background: var(--sf-surface-muted);
+                gap: 8px;
+                margin-bottom: 20px;
+                background: rgba(241, 245, 249, 0.6);
+                backdrop-filter: blur(10px);
                 padding: 4px;
-                border: 1px solid var(--sf-border);
-                border-radius: 8px;
+                border-radius: 12px;
             }
 
             .smart-feed-tab {
                 flex: 1;
-                min-width: 0;
-                padding: 8px 6px;
+                padding: 10px;
                 border: none;
                 background: transparent;
-                color: var(--sf-muted);
-                border-radius: 6px;
+                color: #64748b;
+                border-radius: 8px;
                 cursor: pointer;
-                font-size: 13px;
-                font-weight: 700;
-                line-height: 1.2;
-                white-space: nowrap;
-                transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+                font-size: 14px;
+                font-weight: 500;
+                transition: all 0.2s;
             }
 
             .smart-feed-tab:hover {
-                color: var(--sf-text);
-                background: rgba(255, 255, 255, 0.62);
+                color: #475569;
+                background: rgba(255, 255, 255, 0.5);
             }
 
             .smart-feed-tab.active {
-                background: var(--sf-surface-strong);
-                color: var(--sf-accent);
-                box-shadow: 0 1px 2px rgba(42, 39, 34, 0.08);
+                background: rgba(255, 255, 255, 0.9);
+                color: rgba(139, 162, 251, 1);
+                box-shadow: 0 2px 8px rgba(139, 162, 251, 0.15);
             }
 
             /* 表单元素 */
             .smart-feed-section {
-                margin-bottom: 16px;
+                margin-bottom: 20px;
             }
 
             .smart-feed-label {
                 display: flex;
                 align-items: center;
                 gap: 8px;
-                margin-bottom: 8px;
-                font-size: 13px;
-                font-weight: 700;
-                color: var(--sf-text);
-                line-height: 1.35;
+                margin-bottom: 10px;
+                font-size: 14px;
+                font-weight: 600;
+                color: #374151;
             }
 
             .smart-feed-help {
                 cursor: help;
                 width: 18px;
                 height: 18px;
-                border-radius: 8px;
-                background: var(--sf-accent-soft);
-                color: var(--sf-accent);
+                border-radius: 50%;
+                background: rgba(139, 162, 251, 0.2);
+                color: rgba(139, 162, 251, 1);
                 display: inline-flex;
                 align-items: center;
                 justify-content: center;
                 font-size: 12px;
                 font-weight: bold;
-                transition: background 0.2s ease, color 0.2s ease;
+                transition: all 0.2s;
             }
 
             .smart-feed-help:hover {
-                background: var(--sf-accent);
+                background: rgba(139, 162, 251, 0.9);
                 color: white;
+                transform: scale(1.1);
             }
 
             .smart-feed-input, .smart-feed-textarea, .smart-feed-select {
                 width: 100%;
-                padding: 10px 11px;
-                border: 1px solid var(--sf-border);
-                border-radius: 8px;
-                background: var(--sf-surface-strong);
-                color: var(--sf-text);
+                padding: 12px;
+                border: 2px solid rgba(229, 231, 235, 0.8);
+                border-radius: 10px;
+                background: rgba(255, 255, 255, 0.8);
+                backdrop-filter: blur(10px);
+                color: #1f2937;
                 font-size: 14px;
-                line-height: 1.35;
-                transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+                transition: all 0.2s;
                 box-sizing: border-box;
             }
 
             .smart-feed-input:focus, .smart-feed-textarea:focus, .smart-feed-select:focus {
                 outline: none;
-                border-color: var(--sf-accent);
-                background: #ffffff;
-                box-shadow: 0 0 0 3px rgba(31, 122, 109, 0.12);
+                border-color: rgba(139, 162, 251, 0.8);
+                background: rgba(255, 255, 255, 0.95);
+                box-shadow: 0 0 0 3px rgba(139, 162, 251, 0.1);
             }
 
             .smart-feed-textarea {
-                min-height: 86px;
+                min-height: 80px;
                 resize: vertical;
                 font-family: inherit;
             }
 
             .smart-feed-button {
                 width: 100%;
-                padding: 11px 12px;
-                border: 1px solid transparent;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 700;
-                line-height: 1.2;
+                padding: 14px;
+                border: none;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 600;
                 cursor: pointer;
-                transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+                transition: all 0.2s;
                 margin-top: 10px;
             }
 
@@ -350,47 +293,45 @@ const UI = {
             }
 
             .smart-feed-button-primary {
-                background: var(--sf-accent);
-                border-color: var(--sf-accent);
+                background: linear-gradient(135deg, rgba(16, 185, 129, 0.9) 0%, rgba(5, 150, 105, 0.9) 100%);
                 color: white;
-                box-shadow: 0 6px 14px rgba(31, 122, 109, 0.15);
+                box-shadow: 0 4px 12px rgba(16, 185, 129, 0.2);
             }
 
             .smart-feed-button-primary:hover {
-                background: var(--sf-accent-strong);
-                border-color: var(--sf-accent-strong);
-                box-shadow: 0 8px 18px rgba(31, 122, 109, 0.22);
+                transform: translateY(-2px);
+                box-shadow: 0 6px 20px rgba(16, 185, 129, 0.3);
             }
 
             .smart-feed-button-stop {
-                background: var(--sf-danger);
-                border-color: var(--sf-danger);
+                background: linear-gradient(135deg, rgba(239, 68, 68, 0.9) 0%, rgba(220, 38, 38, 0.9) 100%);
                 color: white;
             }
 
             .smart-feed-button-secondary {
-                background: var(--sf-surface-strong);
-                border-color: var(--sf-border);
-                color: var(--sf-text);
+                background: rgba(243, 244, 246, 0.8);
+                backdrop-filter: blur(10px);
+                color: #374151;
             }
 
             .smart-feed-button-secondary:hover {
-                background: var(--sf-surface-muted);
-                border-color: var(--sf-border-strong);
+                background: rgba(229, 231, 235, 0.9);
             }
 
             /* 日志 */
             .smart-feed-log {
-                background: #11100e;
-                border: 1px solid #2e2a24;
-                border-radius: 8px;
-                padding: 12px;
+                background: rgba(248, 250, 252, 0.8);
+                backdrop-filter: blur(10px);
+                border: 1px solid rgba(226, 232, 240, 0.8);
+                border-radius: 10px;
+                padding: 15px;
                 max-height: 300px;
                 overflow-y: auto;
                 font-size: 12px;
-                font-family: "Cascadia Mono", "Consolas", "Courier New", monospace;
-                line-height: 1.6;
+                font-family: 'Courier New', monospace;
             }
+
+            /* 🆕 在这里添加以下新样式（约第352行） */
 
             /* 可折叠日志容器 */
             .collapsible-log {
@@ -410,9 +351,9 @@ const UI = {
                 display: none;
                 margin-top: 8px;
                 padding: 10px;
-                background: #1c1a17;
+                background: rgba(241, 245, 249, 0.9);
                 border-radius: 6px;
-                border: 1px solid #3b362f;
+                border: 1px solid rgba(226, 232, 240, 0.6);
                 font-size: 11px;
                 line-height: 1.6;
                 overflow-x: auto;
@@ -424,19 +365,20 @@ const UI = {
             .collapsible-log .expand-btn {
                 margin-left: 8px;
                 padding: 2px 8px;
-                border: 1px solid rgba(227, 242, 237, 0.18);
-                background: rgba(31, 122, 109, 0.22);
-                color: #8fd1c4;
-                border-radius: 6px;
+                border: none;
+                background: rgba(139, 162, 251, 0.15);
+                color: rgba(139, 162, 251, 1);
+                border-radius: 4px;
                 cursor: pointer;
                 font-size: 11px;
                 font-weight: 600;
-                transition: background 0.2s ease, border-color 0.2s ease;
+                transition: all 0.2s;
                 vertical-align: middle;
             }
 
             .collapsible-log .expand-btn:hover {
-                background: rgba(31, 122, 109, 0.34);
+                background: rgba(139, 162, 251, 0.25);
+                transform: translateY(-1px);
             }
 
             /* 展开状态 */
@@ -449,9 +391,8 @@ const UI = {
             }
 
             .collapsible-log.expanded .expand-btn {
-                background: rgba(189, 59, 49, 0.18);
-                color: #ffb5ae;
-                border-color: rgba(189, 59, 49, 0.28);
+                background: rgba(239, 68, 68, 0.15);
+                color: rgba(239, 68, 68, 1);
             }
 
             .collapsible-log.expanded .expand-btn::before {
@@ -463,22 +404,20 @@ const UI = {
             }
 
             .smart-feed-log-item {
-                margin-bottom: 7px;
-                padding: 0 0 7px;
-                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                margin-bottom: 8px;
+                padding: 6px 0;
+                border-bottom: 1px solid rgba(226, 232, 240, 0.5);
                 display: flex;
-                gap: 9px;
+                gap: 10px;
             }
 
             .smart-feed-log-time {
-                color: #8d8679;
+                color: #94a3b8;
                 flex-shrink: 0;
             }
 
             .smart-feed-log-text {
                 flex: 1;
-                min-width: 0;
-                word-break: break-word;
             }
 
             /* 其他 */
@@ -486,12 +425,6 @@ const UI = {
                 display: flex;
                 gap: 10px;
                 align-items: center;
-            }
-
-            .smart-feed-range-group > span {
-                color: var(--sf-muted);
-                font-size: 13px;
-                flex-shrink: 0;
             }
 
             .smart-feed-range-input {
@@ -503,9 +436,9 @@ const UI = {
                 align-items: center;
                 gap: 10px;
                 padding: 12px;
-                background: var(--sf-surface-muted);
-                border: 1px solid var(--sf-border);
-                border-radius: 8px;
+                background: rgba(248, 250, 252, 0.8);
+                backdrop-filter: blur(10px);
+                border-radius: 10px;
             }
 
             .smart-feed-checkbox {
@@ -515,19 +448,18 @@ const UI = {
             }
 
             .smart-feed-info-box {
-                background: var(--sf-warning-soft);
-                border: 1px solid #ead3a2;
-                border-left: 4px solid var(--sf-warning);
+                background: rgba(254, 243, 199, 0.8);
+                backdrop-filter: blur(10px);
+                border-left: 4px solid rgba(245, 158, 11, 0.8);
                 padding: 12px;
                 border-radius: 8px;
                 font-size: 13px;
-                color: #6f4b14;
-                line-height: 1.65;
-                margin-bottom: 12px;
+                color: #92400e;
+                margin-bottom: 15px;
             }
 
             .smart-feed-link {
-                color: var(--sf-info);
+                color: rgba(139, 162, 251, 1);
                 text-decoration: none;
                 font-weight: 600;
             }
@@ -541,28 +473,28 @@ const UI = {
                 display: grid;
                 grid-template-columns: repeat(2, 1fr);
                 gap: 10px;
-                margin-bottom: 14px;
+                margin-bottom: 20px;
             }
 
             .smart-feed-stat-card {
-                background: var(--sf-surface-strong);
-                padding: 14px;
-                border-radius: 8px;
+                background: linear-gradient(135deg, rgba(240, 249, 255, 0.8) 0%, rgba(224, 242, 254, 0.8) 100%);
+                backdrop-filter: blur(10px);
+                padding: 15px;
+                border-radius: 12px;
                 text-align: center;
-                border: 1px solid var(--sf-border);
+                border: 1px solid rgba(186, 230, 253, 0.3);
             }
 
             .smart-feed-stat-value {
-                font-size: 23px;
+                font-size: 24px;
                 font-weight: 700;
-                color: var(--sf-accent);
-                line-height: 1;
+                color: #0284c7;
             }
 
             .smart-feed-stat-label {
                 font-size: 12px;
-                color: var(--sf-muted);
-                margin-top: 7px;
+                color: #64748b;
+                margin-top: 5px;
             }
 
             /* 性能优化：启用 GPU 加速 */
@@ -570,47 +502,39 @@ const UI = {
             .smart-feed-float-btn,
             .smart-feed-button {
                 will-change: transform;
+                transform: translateZ(0);
             }
 
             /* 可折叠帮助框 */
-            .smart-feed-info-box.collapsible-help-box {
-                margin-top: 10px;
-                background: var(--sf-warning-soft);
-                border-left-color: var(--sf-warning);
-            }
-
             .collapsible-help-box .help-header {
                 display: flex;
                 justify-content: space-between;
                 align-items: center;
-                gap: 12px;
                 cursor: pointer;
                 user-select: none;
             }
 
             .collapsible-help-box .help-toggle-btn {
-                padding: 5px 10px;
-                border: 1px solid #d7c18e;
-                background: #fffaf0;
-                color: #6f4b14;
+                padding: 4px 12px;
+                border: none;
+                background: rgba(139, 162, 251, 0.2);
+                color: rgba(139, 162, 251, 1);
                 border-radius: 6px;
                 cursor: pointer;
                 font-size: 12px;
                 font-weight: 600;
-                transition: background 0.2s ease, border-color 0.2s ease;
-                flex-shrink: 0;
+                transition: all 0.2s;
             }
 
             .collapsible-help-box .help-toggle-btn:hover {
-                background: #fff3cc;
-                border-color: var(--sf-warning);
+                background: rgba(139, 162, 251, 0.3);
+                transform: translateY(-1px);
             }
 
             .collapsible-help-box .help-content {
                 display: none;
                 margin-top: 12px;
                 padding-top: 12px;
-                border-top: 1px solid rgba(183, 121, 31, 0.22);
             }
 
             .collapsible-help-box.expanded .help-content {
@@ -618,271 +542,8 @@ const UI = {
             }
 
             .collapsible-help-box.expanded .help-toggle-btn {
-                background: var(--sf-danger-soft);
-                color: var(--sf-danger);
-                border-color: #e6b6b0;
-            }
-
-            .smart-feed-guide-card {
-                padding: 12px;
-                border-radius: 8px;
-                margin-bottom: 14px;
-                border: 1px solid var(--sf-border);
-                border-left-width: 4px;
-                background: var(--sf-surface-strong);
-                color: var(--sf-text);
-                line-height: 1.8;
-            }
-
-            .smart-feed-guide-card strong {
-                color: inherit;
-            }
-
-            .smart-feed-guide-card.danger {
-                background: var(--sf-danger-soft);
-                border-color: #efcbc7;
-                border-left-color: var(--sf-danger);
-                color: #81241e;
-            }
-
-            .smart-feed-guide-card.info {
-                background: var(--sf-info-soft);
-                border-color: #bed8e8;
-                border-left-color: var(--sf-info);
-                color: #234f70;
-            }
-
-            .smart-feed-guide-card.accent {
-                background: var(--sf-accent-soft);
-                border-color: #bfded6;
-                border-left-color: var(--sf-accent);
-                color: #164f47;
-            }
-
-            .smart-feed-guide-card.warning {
-                background: var(--sf-warning-soft);
-                border-color: #ead3a2;
-                border-left-color: var(--sf-warning);
-                color: #6f4b14;
-            }
-
-            .smart-feed-guide-body {
-                margin-top: 8px;
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-guide-table-wrap {
-                background: rgba(255, 255, 255, 0.62);
-                padding: 12px;
-                border: 1px solid rgba(183, 121, 31, 0.2);
-                border-radius: 8px;
-                margin: 10px 0;
-                overflow-x: auto;
-            }
-
-            .smart-feed-guide-table {
-                width: 100%;
-                font-size: 13px;
-                line-height: 1.8;
-                border-collapse: collapse;
-            }
-
-            .smart-feed-guide-table td {
-                padding: 0;
-            }
-
-            .smart-feed-guide-step {
-                width: 72px;
-                vertical-align: top;
-                font-weight: 700;
-                color: var(--sf-accent);
-            }
-
-            .smart-feed-guide-spacer td {
-                padding: 8px 0;
-            }
-
-            .smart-feed-muted {
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-danger-text {
-                color: var(--sf-danger);
-            }
-
-            .smart-feed-tip-line {
-                margin-top: 14px;
-                padding: 10px;
-                background: var(--sf-accent-soft);
-                border: 1px solid #bfded6;
-                border-radius: 8px;
-                font-size: 12px;
-                text-align: center;
-                color: var(--sf-accent-strong);
-            }
-
-            .smart-feed-details {
-                margin-top: 14px;
-            }
-
-            .smart-feed-details summary {
-                cursor: pointer;
-                color: var(--sf-danger);
-                font-weight: 700;
-            }
-
-            .smart-feed-details-body {
-                margin-top: 10px;
-                padding-left: 15px;
-                font-size: 12px;
-                line-height: 1.8;
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-divider {
-                border: none;
-                border-top: 1px dashed #d4ccbf;
-                margin: 15px 0;
-            }
-
-            .smart-feed-note {
-                color: var(--sf-muted);
-                display: block;
-                margin-top: 5px;
-                font-size: 12px;
-                line-height: 1.5;
-            }
-
-            .smart-feed-log-toolbar {
-                display: flex;
-                gap: 10px;
-                margin-bottom: 10px;
-                align-items: center;
-                justify-content: space-between;
-            }
-
-            .smart-feed-log-toggle {
-                display: flex;
-                align-items: center;
-                gap: 6px;
-                font-size: 13px;
-                color: var(--sf-muted);
-                cursor: pointer;
-                user-select: none;
-            }
-
-            .smart-feed-log-toggle input {
-                width: 16px;
-                height: 16px;
-                cursor: pointer;
-                accent-color: var(--sf-accent);
-            }
-
-            .smart-feed-clear-log {
-                margin: 0;
-                padding: 8px 14px;
-                width: auto;
-                font-size: 13px;
-            }
-
-            .smart-feed-about-heading {
-                margin: 0 0 12px;
-                color: var(--sf-text);
-                font-size: 15px;
-                line-height: 1.35;
-            }
-
-            .smart-feed-about-card {
-                background: var(--sf-surface-strong);
-                border: 1px solid var(--sf-border);
-                padding: 14px;
-                border-radius: 8px;
-                font-size: 13px;
-                line-height: 1.8;
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-about-card.warning {
-                background: var(--sf-warning-soft);
-                border-color: #ead3a2;
-                color: #6f4b14;
-            }
-
-            .smart-feed-about-card.danger {
-                background: var(--sf-danger-soft);
-                border-color: #efcbc7;
-                color: #81241e;
-                font-size: 12px;
-            }
-
-            .smart-feed-about-card p {
-                margin: 0 0 10px;
-            }
-
-            .smart-feed-about-card p:last-child {
-                margin-bottom: 0;
-            }
-
-            .smart-feed-about-card hr {
-                border: none;
-                border-top: 1px solid var(--sf-border);
-                margin: 15px 0;
-            }
-
-            .smart-feed-feedback-note {
-                margin-top: 10px;
-                font-size: 12px;
-                color: var(--sf-muted);
-            }
-
-            .smart-feed-toast {
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                background: var(--sf-accent);
-                color: white;
-                padding: 12px 18px;
-                border-radius: 8px;
-                font-size: 14px;
-                font-weight: 700;
-                z-index: 9999999;
-                box-shadow: 0 10px 24px rgba(31, 122, 109, 0.22);
-                animation: smart-feed-slide-in 0.22s ease;
-            }
-
-            .smart-feed-toast.closing {
-                animation: smart-feed-slide-out 0.22s ease forwards;
-            }
-
-            @media (max-width: 460px) {
-                .smart-feed-panel {
-                    width: calc(100vw - 20px);
-                }
-
-                .smart-feed-body {
-                    padding: 12px;
-                }
-
-                .smart-feed-tabs {
-                    display: grid;
-                    grid-template-columns: repeat(2, 1fr);
-                }
-
-                .smart-feed-action-row,
-                .smart-feed-range-group,
-                .smart-feed-log-toolbar {
-                    flex-direction: column;
-                    align-items: stretch;
-                }
-
-                .smart-feed-action-row .smart-feed-button,
-                .smart-feed-clear-log {
-                    width: 100%;
-                }
-
-                .smart-feed-stats {
-                    grid-template-columns: 1fr;
-                }
+                background: rgba(239, 68, 68, 0.2);
+                color: rgba(239, 68, 68, 1);
             }
         `);
 
@@ -988,92 +649,92 @@ const UI = {
                     </div>
 
                     <!-- 🆕 重要提示框（可折叠） -->
-                    <div class="smart-feed-info-box collapsible-help-box">
+                    <div class="smart-feed-info-box collapsible-help-box" style="margin-top: 10px; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-left: 4px solid #f59e0b;">
                         <div class="help-header">
                             <strong>🎯 新手 5 分钟上手指南</strong>
                             <button class="help-toggle-btn">展开 ▼</button>
                         </div>
                         <div class="help-content">
                             <!-- 第一部分：准备工作 -->
-                            <div class="smart-feed-guide-card danger">
-                                <strong>📋 第一次使用前，先做好 4 件事</strong><br>
-                                <div class="smart-feed-guide-body">
-                                    1. 打开 <a href="https://www.douyin.com/" target="_blank" class="smart-feed-link">抖音网页版</a>，进入左侧菜单的"<strong>推荐</strong>"页面<br>
+                            <div style="background: rgba(220, 38, 38, 0.1); border-left: 3px solid #dc2626; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                                <strong style="color: #dc2626;">📋 第一次使用前，先做好 4 件事</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8;">
+                                    1. 打开 <a href="https://www.douyin.com/" target="_blank" style="color: #2563eb;">抖音网页版</a>，进入左侧菜单的"<strong>推荐</strong>"页面<br>
                                     2. 关闭视频右下角"<strong>自动连播</strong>"，让脚本可以自己切到下一个视频<br>
                                     3. 不要使用无痕模式，否则 API Key、规则和面板位置可能保存不了<br>
                                     4. 准备一个 API Key；没有的话可以点下面链接去创建
                                 </div>
                             </div>
 
-                            <div class="smart-feed-guide-card info">
-                                <strong>🔑 API Key 去哪里拿？</strong><br>
-                                <div class="smart-feed-guide-body">
-                                    <a href="https://platform.deepseek.com/api_keys" target="_blank" class="smart-feed-link">DeepSeek API Key</a>：国内新手最容易上手<br>
-                                    <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" class="smart-feed-link">Kimi API Key</a>：国内访问稳定<br>
-                                    <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" class="smart-feed-link">Qwen / 通义千问 API Key</a>：阿里云控制台<br>
-                                    <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" class="smart-feed-link">GLM / 智谱 API Key</a>：GLM 模型控制台<br>
-                                    <a href="https://aistudio.google.com/apikey" target="_blank" class="smart-feed-link">Google Gemini API Key</a>：Gemini 模型控制台<br>
-                                    <span>API Key 像密码一样，只粘贴到本脚本里，不要发给别人。</span>
+                            <div style="background: rgba(37, 99, 235, 0.08); border-left: 3px solid #2563eb; padding: 12px; border-radius: 6px; margin-bottom: 15px;">
+                                <strong style="color: #1d4ed8;">🔑 API Key 去哪里拿？</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8;">
+                                    <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color: #2563eb;">DeepSeek API Key</a>：国内新手最容易上手<br>
+                                    <a href="https://platform.moonshot.cn/console/api-keys" target="_blank" style="color: #2563eb;">Kimi API Key</a>：国内访问稳定<br>
+                                    <a href="https://dashscope.console.aliyun.com/apiKey" target="_blank" style="color: #2563eb;">Qwen / 通义千问 API Key</a>：阿里云控制台<br>
+                                    <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" style="color: #2563eb;">GLM / 智谱 API Key</a>：GLM 模型控制台<br>
+                                    <a href="https://aistudio.google.com/apikey" target="_blank" style="color: #2563eb;">Google Gemini API Key</a>：Gemini 模型控制台<br>
+                                    <span style="color: #64748b;">API Key 像密码一样，只粘贴到本脚本里，不要发给别人。</span>
                                 </div>
                             </div>
                     
                             <!-- 第二部分：配置流程 -->
                             <strong>⚙️ 按顺序完成 API 配置</strong><br>
-                            <div class="smart-feed-guide-table-wrap">
-                                <table class="smart-feed-guide-table">
+                            <div style="background: rgba(255,255,255,0.7); padding: 12px; border-radius: 8px; margin: 10px 0;">
+                                <table style="width: 100%; font-size: 13px; line-height: 1.8;">
                                     <tr>
-                                        <td class="smart-feed-guide-step">步骤 1</td>
+                                        <td style="width: 72px; vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 1</td>
                                         <td>
                                             <strong>先选或填写 API Base URL</strong><br>
-                                            <span class="smart-feed-muted">
+                                            <span style="color: #64748b;">
                                             • 普通用户：在"API Base URL 预设"里选 DeepSeek、GLM、Gemini 等<br>
                                             • 本地/转发服务：选"<strong>自定义 OpenAI 兼容 API</strong>"，Base URL 可填 <code>http://127.0.0.1:8317</code><br>
                                             • 如果你填的是 <code>https://example.com/v1</code>，脚本会自动拼出 chat 和 models 接口
                                             </span>
                                         </td>
                                     </tr>
-                                    <tr class="smart-feed-guide-spacer"><td colspan="2"></td></tr>
+                                    <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
                                     <tr>
-                                        <td class="smart-feed-guide-step">步骤 2</td>
+                                        <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 2</td>
                                         <td>
                                             <strong>粘贴 API Key</strong><br>
-                                            <span class="smart-feed-muted">
+                                            <span style="color: #64748b;">
                                             • 把服务商控制台创建的 Key 粘贴到"API Key"输入框<br>
                                             • Key 前后不要多空格；如果复制错了，测试连接会失败<br>
                                             • 本脚本只把 Key 存在浏览器本地，不上传到本项目服务器
                                             </span>
                                         </td>
                                     </tr>
-                                    <tr class="smart-feed-guide-spacer"><td colspan="2"></td></tr>
+                                    <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
                                     <tr>
-                                        <td class="smart-feed-guide-step">步骤 3</td>
+                                        <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 3</td>
                                         <td>
                                             <strong>必须先点"① 获取模型"</strong><br>
-                                            <span class="smart-feed-muted">
+                                            <span style="color: #64748b;">
                                             • 脚本会读取这个 API 能用的模型，并刷新"模型选择"下拉框<br>
                                             • 预设 API 会自动选一个推荐模型；自定义 API 会停在 <code>&lt;请选择模型&gt;</code>，请手动选<br>
                                             • 如果看到模型后面有"2026.5：推荐，免费"之类备注，优先选它
                                             </span>
                                         </td>
                                     </tr>
-                                    <tr class="smart-feed-guide-spacer"><td colspan="2"></td></tr>
+                                    <tr><td colspan="2" style="padding: 8px 0;"></td></tr>
                                     <tr>
-                                        <td class="smart-feed-guide-step">步骤 4</td>
+                                        <td style="vertical-align: top; font-weight: bold; color: #7c3aed;">步骤 4</td>
                                         <td>
                                             <strong>再点"② 测试连接"</strong><br>
-                                            <span class="smart-feed-muted">
+                                            <span style="color: #64748b;">
                                             • 看到绿色成功提示后，说明 URL、Key、模型三件事都通了<br>
                                             • 接着选择"预设模板"或填写偏好规则<br>
-                                            • <strong class="smart-feed-danger-text">最后点"💾 保存当前配置"</strong>，再点右上角"▶ 开始"
+                                            • <strong style="color: #dc2626;">最后点"💾 保存当前配置"</strong>，再点右上角"▶ 开始"
                                             </span>
                                         </td>
                                     </tr>
                                 </table>
                             </div>
 
-                            <div class="smart-feed-guide-card info">
-                                <strong>🤖 模型选择小抄</strong><br>
-                                <div class="smart-feed-guide-body">
+                            <div style="background: rgba(139, 92, 246, 0.08); border-left: 3px solid #7c3aed; padding: 12px; border-radius: 6px; margin: 15px 0;">
+                                <strong style="color: #6d28d9;">🤖 模型选择小抄</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8; color: #64748b;">
                                     • Gemini 当前按成本启发式会倾向 <code>gemini-3.1-flash-lite-preview</code> 这类新版 flash-lite 模型<br>
                                     • GLM 当前按成本启发式会倾向 <code>glm-4.7-flash</code> 这类新版 flash 模型；如果它不出现在"获取模型"结果里，会手工补到列表中<br>
                                     • 不确定选哪个时，选带"推荐、免费、低成本、flash、lite"备注的模型<br>
@@ -1082,20 +743,20 @@ const UI = {
                             </div>
                     
                             <!-- 第三部分：开始使用 -->
-                            <div class="smart-feed-guide-card accent">
-                                <strong>✅ 配置完成后</strong><br>
-                                <div class="smart-feed-guide-body">
+                            <div style="background: rgba(16, 185, 129, 0.1); border-left: 3px solid #10b981; padding: 12px; border-radius: 6px; margin: 15px 0;">
+                                <strong style="color: #059669;">✅ 配置完成后</strong><br>
+                                <div style="margin-top: 8px; line-height: 1.8;">
                                     1️⃣ 点击面板右上角"<strong>▶ 开始</strong>"按钮<br>
                                     2️⃣ 切换到"<strong>运行日志</strong>"标签页，看实时处理进度<br>
-                                    3️⃣ <strong class="smart-feed-danger-text">保持抖音标签页可见</strong><br>
+                                    3️⃣ <strong style="color: #dc2626;">保持抖音标签页可见</strong><br>
                                     4️⃣ 建议首次运行 10-15 分钟，观察效果后再调整
                                 </div>
                             </div>
                     
                             <!-- 第四部分：常见错误 -->
-                            <details class="smart-feed-details">
-                                <summary>❌ 遇到问题？点击查看常见错误</summary>
-                                <div class="smart-feed-details-body">
+                            <details style="margin-top: 15px;">
+                                <summary style="cursor: pointer; color: #dc2626; font-weight: bold;">❌ 遇到问题？点击查看常见错误</summary>
+                                <div style="margin-top: 10px; padding-left: 15px; font-size: 12px; line-height: 1.8; color: #64748b;">
                                     <strong>Q: 点"测试连接"失败？</strong><br>
                                     A: ① 先点"① 获取模型" ② 选中一个模型 ③ 检查 Key 前后有没有多余空格 ④ 确认 API Base URL 能访问<br><br>
 
@@ -1106,13 +767,13 @@ const UI = {
                                     A: ① 确认在"推荐"页面 ② 关闭了自动连播 ③ 刷新页面重试<br><br>
                     
                                     <strong>其他问题？</strong><br>
-                                    发邮件到 <a href="mailto:1987892914@qq.com" class="smart-feed-link">1987892914@qq.com</a>，记得附上"运行日志"截图
+                                    发邮件到 <a href="mailto:1987892914@qq.com" style="color: #2563eb;">1987892914@qq.com</a>，记得附上"运行日志"截图
                                 </div>
                             </details>
                     
-                            <hr class="smart-feed-divider">
+                            <hr style="border: none; border-top: 1px dashed #cbd5e1; margin: 15px 0;">
                     
-                            <div class="smart-feed-tip-line">
+                            <div style="margin-top: 15px; padding: 10px; background: rgba(139, 92, 246, 0.1); border-radius: 6px; font-size: 12px; text-align: center; color: #7c3aed;">
                                 💡 <strong>小贴士</strong>：顺序记住就行：Base URL → API Key → ① 获取模型 → 选择模型 → ② 测试连接 → 保存 → 开始
                             </div>
                         </div>
@@ -1142,7 +803,7 @@ const UI = {
                     <div class="smart-feed-section">
                         <div class="smart-feed-label">🔑 API Key</div>
                         <input type="text" class="smart-feed-input" id="apiKey" placeholder="输入你的 API Key（长串英文）">
-                        <small class="smart-feed-note">
+                        <small style="color: #64748b; display: block; margin-top: 5px;">
                             💡 在各平台的控制台/设置页面创建后，粘贴到这里
                         </small>
                     </div>
@@ -1156,7 +817,7 @@ const UI = {
                         <select class="smart-feed-select" id="modelSelect">
                             <!-- 由 JavaScript 动态生成 -->
                         </select>
-                        <small class="smart-feed-note">
+                        <small style="color: #94a3b8; display: block; margin-top: 5px; font-size: 12px;">
                             ⚙️ 预设只会回填 Base URL 和默认模型；请求始终按 OpenAI 兼容格式发送
                         </small>
                     </div>
@@ -1223,13 +884,13 @@ const UI = {
                             <span>到</span>
                             <input type="number" class="smart-feed-input smart-feed-range-input" id="watchMax" value="${config.watchBeforeLike[1]}" min="0" max="30">
                         </div>
-                        <small class="smart-feed-note">模拟真人观看一段时间后再操作</small>
+                        <small style="color: #64748b;">模拟真人观看一段时间后再操作</small>
                     </div>
 
                     <div class="smart-feed-section">
                         <div class="smart-feed-label">内容跳过概率（%）</div>
                         <input type="number" class="smart-feed-input" id="skipProbability" value="${config.skipProbability}" min="0" max="50">
-                        <small class="smart-feed-note">随机跳过部分视频，避免每个都操作</small>
+                        <small style="color: #64748b;">随机跳过部分视频，避免每个都操作</small>
                     </div>
 
                     <div class="smart-feed-section">
@@ -1260,12 +921,13 @@ const UI = {
                     </div>
 
                     <!-- 🆕 新增：日志控制栏 -->
-                    <div class="smart-feed-log-toolbar">
-                        <label class="smart-feed-log-toggle">
-                            <input type="checkbox" id="verboseLog">
+                    <div style="display: flex; gap: 10px; margin-bottom: 10px; align-items: center; justify-content: space-between;">
+                        <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: #64748b; cursor: pointer; user-select: none;">
+                            <input type="checkbox" id="verboseLog" style="width: 16px; height: 16px; cursor: pointer;">
                             <span>显示详细调试信息</span>
                         </label>
-                        <button class="smart-feed-button smart-feed-button-secondary smart-feed-clear-log" id="clearLog">
+                        <button class="smart-feed-button smart-feed-button-secondary" id="clearLog"
+                                style="margin: 0; padding: 8px 16px; width: auto; font-size: 13px;">
                             🗑️ 清空日志
                         </button>
                     </div>
@@ -1281,8 +943,8 @@ const UI = {
                 <!-- 关于 -->
                 <div class="smart-feed-tab-content" data-content="about" style="display: none;">
                     <div class="smart-feed-section">
-                        <h3 class="smart-feed-about-heading">📖 使用说明</h3>
-                        <div class="smart-feed-about-card">
+                        <h3 style="margin: 0 0 15px 0; color: #1f2937;">📖 使用说明</h3>
+                        <div style="background: #f8fafc; padding: 15px; border-radius: 10px; font-size: 13px; line-height: 1.8; color: #475569;">
                             <p><strong>🚀 零基础启动顺序</strong></p>
                             <p>1. 打开 <a href="https://www.douyin.com/" target="_blank" class="smart-feed-link">抖音网页版</a>，进入"推荐"页面并关闭自动连播。</p>
                             <p>2. 在"基础设置"里选择 API Base URL 预设；如果你用本地代理或第三方转发，选择"自定义 OpenAI 兼容 API"。</p>
@@ -1290,7 +952,7 @@ const UI = {
                             <p>4. 先点 <strong>① 点击获取模型</strong>，等模型列表刷新后选择模型。</p>
                             <p>5. 再点 <strong>② 点击测试连接</strong>。成功后选择预设模板或填写偏好规则，保存配置，最后点右上角"▶ 开始"。</p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>🔑 如何获取 API Key</strong></p>
                             <p>• <a href="https://platform.deepseek.com/api_keys" target="_blank" class="smart-feed-link">DeepSeek 官网</a> - 新手容易上手，价格低</p>
@@ -1300,7 +962,7 @@ const UI = {
                             <p>• <a href="https://aistudio.google.com/apikey" target="_blank" class="smart-feed-link">Google AI Studio</a> - Gemini API Key</p>
                             <p>• 第三方转发或本地服务：选择"自定义 OpenAI 兼容 API"，例如 <code>http://127.0.0.1:8317</code></p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>🤖 模型怎么选</strong></p>
                             <p>• 先点 <strong>① 点击获取模型</strong>，脚本会调用 OpenAI 兼容的 <code>/models</code> 接口读取可用模型。</p>
@@ -1309,7 +971,7 @@ const UI = {
                             <p>• 有些模型能正常调用，但服务商的 <code>/models</code> 不返回；本项目会在配置里手工补充，例如 <code>glm-4.7-flash</code>。</p>
                             <p>• 本工具只做短文本判断，优先选择便宜、快速、稳定的 chat 模型，不需要图像、音频、embedding、rerank 类模型。</p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>⚠️ 后台挂机说明</strong></p>
                             <p>• 本脚本<strong>需要保持抖音标签页可见</strong>，不要切换到其他浏览器标签页。</p>
@@ -1317,7 +979,7 @@ const UI = {
                             <p>• 原因：快捷键操作、视频切换和 DOM 监听都依赖页面处于活跃状态。</p>
                             <p>• 建议使用独立浏览器窗口运行，首次运行 10-15 分钟，观察推荐流变化后再调整规则。</p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>❓ 常见问题</strong></p>
                             <p><strong>Q: 价格大概多少？</strong></p>
@@ -1332,7 +994,7 @@ const UI = {
                             <p><strong>Q: 出现 400 / 401 / 422 错误怎么办？</strong></p>
                             <p>A: 400/422 多半是 Base URL、模型名或请求格式不匹配；401 多半是 Key 错了、过期了或没权限。按顺序检查：Base URL → API Key → 获取模型 → 选择模型 → 测试连接。</p>
 
-                            <hr>
+                            <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 15px 0;">
 
                             <p><strong>🔧 开发者维护说明</strong></p>
                             <p>• <strong>统一配置位置</strong>：所有 Base URL 预设集中在 <code>CONFIG.apiProviders</code></p>
@@ -1349,20 +1011,20 @@ const UI = {
                     </div>
 
                     <div class="smart-feed-section">
-                        <h3 class="smart-feed-about-heading">🐛 反馈与支持</h3>
-                        <div class="smart-feed-about-card warning">
+                        <h3 style="margin: 0 0 15px 0; color: #1f2937;">🐛 反馈与支持</h3>
+                        <div style="background: #fef3c7; padding: 15px; border-radius: 10px; font-size: 13px; line-height: 1.8; color: #92400e;">
                             <p><strong>本工具可能因抖音更新而失效！</strong></p>
                             <p>遇到问题请及时反馈，帮助我们改进：</p>
                             <p>• 📧 邮件反馈：<a href="mailto:1987892914@qq.com" class="smart-feed-link">1987892914@qq.com</a></p>
                             <p>• 🌟 GitHub项目：<a href="https://github.com/baianjo/Douyin-Smart-Feed-Assistant" target="_blank" class="smart-feed-link">点击访问</a></p>
                             <p>• 如果觉得有用，请给项目点个⭐Star支持一下！</p>
-                            <p class="smart-feed-feedback-note">反馈时请附上错误截图和日志，方便快速定位问题</p>
+                            <p style="margin-top: 10px; font-size: 12px; color: #78716c;">反馈时请附上错误截图和日志，方便快速定位问题</p>
                         </div>
                     </div>
 
                     <div class="smart-feed-section">
-                        <h3 class="smart-feed-about-heading">⚖️ 免责声明</h3>
-                        <div class="smart-feed-about-card danger">
+                        <h3 style="margin: 0 0 15px 0; color: #1f2937;">⚖️ 免责声明</h3>
+                        <div style="background: #fee2e2; padding: 15px; border-radius: 10px; font-size: 12px; line-height: 1.8; color: #991b1b;">
                             <p>• 本工具仅供学习和个人研究使用</p>
                             <p>• 使用本工具可能违反抖音服务条款</p>
                             <p>• 因使用本工具导致的账号问题，作者不承担任何责任</p>
@@ -1395,13 +1057,25 @@ const UI = {
         // 🆕 显示保存成功提示
         function showSaveNotice() {
             const notice = document.createElement('div');
-            notice.className = 'smart-feed-toast';
+            notice.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                background: #10b981;
+                color: white;
+                padding: 12px 20px;
+                border-radius: 8px;
+                font-size: 14px;
+                z-index: 9999999;
+                box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+                animation: slideIn 0.3s ease;
+            `;
             notice.textContent = '✓ 配置已保存';
             document.body.appendChild(notice);
 
             setTimeout(() => {
-                notice.classList.add('closing');
-                setTimeout(() => notice.remove(), 220);
+                notice.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => notice.remove(), 300);
             }, 2000);
         }
 
@@ -2048,6 +1722,7 @@ const UI = {
         const saveBtn = document.createElement('button');
         saveBtn.className = 'smart-feed-button smart-feed-button-secondary';
         saveBtn.textContent = '💾 保存当前配置';
+        saveBtn.style.marginTop = '10px';
         saveBtn.onclick = () => saveConfigDebounced(true);
 
         const basicContent = document.querySelector('[data-content="basic"]');
@@ -2100,10 +1775,10 @@ const UI = {
         item.className = 'smart-feed-log-item';
 
         const colors = {
-            info: '#b7afa1',
-            success: '#72c7a9',
-            warning: '#f0bf63',
-            error: '#ff8a80'
+            info: '#64748b',
+            success: '#10b981',
+            warning: '#f59e0b',
+            error: '#ef4444'
         };
 
         // 🆕 检测是否为可折叠的长文本
