@@ -316,6 +316,242 @@ const sanitizeDebugResponse = (responseText: string, maxLength = 1000): string =
     }
 };
 
+type TokenParameterMode = 'max_tokens' | 'max_completion_tokens' | 'none';
+
+const tokenParameterPreferenceByRequestKey = new Map<string, TokenParameterMode>();
+
+const getTokenPreferenceKey = (endpoint: string, modelName: string): string => {
+    return `${endpoint}\n${(modelName || '').trim()}`;
+};
+
+const getConfiguredTokenLimit = (requestParams): number | null => {
+    const value = requestParams?.max_tokens ?? requestParams?.max_completion_tokens;
+    return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : null;
+};
+
+const getInitialTokenParameterMode = (requestKey: string): TokenParameterMode => {
+    return tokenParameterPreferenceByRequestKey.get(requestKey) || 'max_tokens';
+};
+
+const buildOpenAICompatibleRequestBody = (baseBody, tokenMode: TokenParameterMode) => {
+    const requestParams = cloneRequestParams(CONFIG.openAICompatibleRequestParams);
+    const tokenLimit = getConfiguredTokenLimit(requestParams);
+
+    delete requestParams.max_tokens;
+    delete requestParams.max_completion_tokens;
+
+    const body = {
+        ...baseBody,
+        ...requestParams
+    };
+
+    if (tokenMode !== 'none' && tokenLimit !== null) {
+        body[tokenMode] = tokenLimit;
+    }
+
+    return body;
+};
+
+const getBodyTokenParameterMode = (body): TokenParameterMode => {
+    if (Object.prototype.hasOwnProperty.call(body, 'max_tokens')) {
+        return 'max_tokens';
+    }
+
+    if (Object.prototype.hasOwnProperty.call(body, 'max_completion_tokens')) {
+        return 'max_completion_tokens';
+    }
+
+    return 'none';
+};
+
+const formatTokenParameterForLog = (body): string => {
+    const mode = getBodyTokenParameterMode(body);
+
+    if (mode === 'none') {
+        return 'token_limit=未发送';
+    }
+
+    return `${mode}=${body[mode]}`;
+};
+
+const parseUnsupportedTokenParameter = (responseText: string): TokenParameterMode | '' => {
+    let errorParam = '';
+    let errorCode = '';
+    let message = responseText || '';
+
+    try {
+        const data = JSON.parse(responseText);
+        errorParam = typeof data?.error?.param === 'string' ? data.error.param : '';
+        errorCode = typeof data?.error?.code === 'string' ? data.error.code : '';
+        message = typeof data?.error?.message === 'string' ? data.error.message : responseText;
+    } catch {
+        // 响应不是 JSON 时，继续使用原始文本做保守匹配。
+    }
+
+    if (errorCode && errorCode !== 'unsupported_parameter') {
+        return '';
+    }
+
+    if (errorParam === 'max_tokens' || errorParam === 'max_completion_tokens') {
+        return errorParam;
+    }
+
+    const unsupportedMatch = message.match(/unsupported parameter:?\s*['"`]?(max_tokens|max_completion_tokens)['"`]?/i)
+        || message.match(/['"`](max_tokens|max_completion_tokens)['"`]\s+is not supported/i);
+
+    if (unsupportedMatch && /unsupported[_\s-]?parameter|not supported/i.test(`${errorCode} ${message}`)) {
+        return unsupportedMatch[1] as TokenParameterMode;
+    }
+
+    return '';
+};
+
+const getFallbackTokenParameterMode = (
+    currentMode: TokenParameterMode,
+    responseText: string
+): TokenParameterMode | '' => {
+    const unsupportedParameter = parseUnsupportedTokenParameter(responseText);
+
+    if (currentMode === 'max_tokens' && unsupportedParameter === 'max_tokens') {
+        return 'max_completion_tokens';
+    }
+
+    if (currentMode === 'max_completion_tokens' && unsupportedParameter === 'max_completion_tokens') {
+        return 'none';
+    }
+
+    return '';
+};
+
+const describeTokenParameterMode = (mode: TokenParameterMode): string => {
+    return mode === 'none' ? '不发送 token 限制' : mode;
+};
+
+const sendOpenAICompatibleChatRequest = ({
+    endpoint,
+    headers,
+    baseBody,
+    tokenMode,
+    requestKey
+}): Promise<string> => {
+    const body = buildOpenAICompatibleRequestBody(baseBody, tokenMode);
+    const actualTokenMode = getBodyTokenParameterMode(body);
+
+    getUI().log(`📡 请求地址: ${endpoint}`, 'info', 'debug');
+    getUI().log(`🤖 使用模型: ${body.model}`, 'info', 'debug');
+    getUI().log(`⚙️ 参数: temperature=${body.temperature}, ${formatTokenParameterForLog(body)}, stream=${body.stream}`, 'info', 'debug');
+    getUI().log('──────── 📡 请求详情 ────────', 'info', 'debug');
+    getUI().log(`🌐 完整 URL: ${endpoint}`, 'info', 'debug');
+    getUI().log('🔑 Authorization: Bearer [已隐藏]', 'info', 'debug');
+    getUI().log('📦 请求体关键字段:', 'info', 'debug');
+    getUI().log(`  • model: ${body.model}`, 'info', 'debug');
+    getUI().log(`  • temperature: ${body.temperature}`, 'info', 'debug');
+    getUI().log(`  • ${formatTokenParameterForLog(body)}`, 'info', 'debug');
+    getUI().log(`  • stream: ${body.stream}`, 'info', 'debug');
+    if (body.thinking) {
+        getUI().log(`  • thinking: ${JSON.stringify(body.thinking)}`, 'warning', 'debug');
+    }
+    getUI().log('📄 完整请求体 JSON (前 800 字符):', 'info', 'debug');
+    getUI().log(JSON.stringify(body, null, 2).substring(0, 800), 'info', 'debug');
+    getUI().log('────────────────────────────', 'info', 'debug');
+
+    getUI().log('⏳ 正在发送请求...', 'info', 'debug');
+
+    return new Promise((resolve, reject) => {
+        let waitCount = 0;
+        const waitTimer = setInterval(() => {
+            waitCount++;
+            getUI().log(`⏳ 等待服务器响应... (${waitCount * 2}秒)`, 'info', 'debug');
+        }, 2000);
+
+        GM_xmlhttpRequest({
+            method: 'POST',
+            url: endpoint,
+            headers: headers,
+            data: JSON.stringify(body),
+            timeout: 30000,
+            onload: (response) => {
+                clearInterval(waitTimer);
+                getUI().log('✅ 收到响应', 'success');
+                getUI().log('──────── 📥 响应详情 ────────', 'info', 'debug');
+                getUI().log(`📊 状态码: ${response.status} ${response.statusText}`, 'info', 'debug');
+                getUI().log('📄 响应体前 1000 字符（思考内容已省略）:', 'info', 'debug');
+                getUI().log(sanitizeDebugResponse(response.responseText, 1000), 'info', 'debug');
+                getUI().log('────────────────────────────', 'info', 'debug');
+                try {
+                    if (response.status !== 200) {
+                        const fallbackTokenMode = getFallbackTokenParameterMode(actualTokenMode, response.responseText);
+
+                        if (fallbackTokenMode) {
+                            getUI().log(
+                                `⚠️ 接口显式报错不支持 ${describeTokenParameterMode(actualTokenMode)}，改为 ${describeTokenParameterMode(fallbackTokenMode)} 后重试`,
+                                'warning'
+                            );
+                            sendOpenAICompatibleChatRequest({
+                                endpoint,
+                                headers,
+                                baseBody,
+                                tokenMode: fallbackTokenMode,
+                                requestKey
+                            }).then(resolve, reject);
+                            return;
+                        }
+
+                        getUI().log(`❌ HTTP ${response.status}: ${response.statusText}`, 'error');
+                        reject(new Error(`HTTP ${response.status}: ${sanitizeDebugResponse(response.responseText, 200)}`));
+                        return;
+                    }
+
+                    const data = JSON.parse(response.responseText);
+                    const extraction = extractFinalContent(data);
+
+                    if (!extraction.hasSupportedMessageShape) {
+                        getUI().log(`⚠️ 未知响应格式: ${JSON.stringify(data).substring(0, 300)}`, 'error');
+                        throw new Error('API 返回了不支持的格式，请检查模型是否正确');
+                    }
+
+                    const content = extraction.content;
+
+                    if (extraction.hasReasoning) {
+                        getUI().log('🧠 检测到模型返回思考内容，已忽略，仅使用最终回答', 'info', 'debug');
+                    }
+
+                    if (!content) {
+                        if (extraction.hasReasoning) {
+                            throw new Error(
+                                '模型未返回最终回答\n\n' +
+                                'API 只返回了思考内容，脚本不会把思考过程当作判定结果。\n' +
+                                '请降低/关闭思考模式，或切换到会返回最终 content 的模型。'
+                            );
+                        }
+
+                        throw new Error('API 返回空内容\n\n原始响应片段:\n' + sanitizeDebugResponse(response.responseText, 500));
+                    }
+
+                    tokenParameterPreferenceByRequestKey.set(requestKey, actualTokenMode);
+                    getUI().log('✅ AI 响应成功', 'success');
+                    resolve(content);
+
+                } catch (e) {
+                    getUI().log(`💥 解析失败: ${e.message}`, 'error');
+                    reject(new Error(`${e.message}\n原始响应: ${sanitizeDebugResponse(response.responseText, 500)}`));
+                }
+            },
+            onerror: (error) => {
+                clearInterval(waitTimer);
+                const msg = `🌐 网络错误 - ${error.statusText || error.error || '连接失败'}`;
+                getUI().log(msg, 'error');
+                reject(new Error(msg));
+            },
+            ontimeout: () => {
+                clearInterval(waitTimer);
+                getUI().log('⏱️ 请求超时（30秒）', 'error');
+                reject(new Error('请求超时，可能是网络问题或模型响应过慢'));
+            }
+        });
+    });
+};
+
 const AIService = {
     /*
      * 调用AI API
@@ -361,109 +597,18 @@ const AIService = {
                 model: modelName,
                 messages: messages
             };
-
-            const body = {
-                ...baseBody,
-                ...cloneRequestParams(CONFIG.openAICompatibleRequestParams)
-            };
+            const requestKey = getTokenPreferenceKey(endpoint, modelName);
+            const tokenMode = getInitialTokenParameterMode(requestKey);
 
             getUI().log('ℹ️ 使用 OpenAI 兼容通用请求体，不注入厂商专属参数', 'info', 'debug');
 
-            getUI().log(`📡 请求地址: ${endpoint}`, 'info', 'debug');
-            getUI().log(`🤖 使用模型: ${body.model}`, 'info', 'debug');
-            getUI().log(`⚙️ 参数: temperature=${body.temperature}, max_tokens=${body.max_tokens}, stream=${body.stream}`, 'info', 'debug');
-            getUI().log('──────── 📡 请求详情 ────────', 'info', 'debug');
-            getUI().log(`🌐 完整 URL: ${endpoint}`, 'info', 'debug');
-            getUI().log('🔑 Authorization: Bearer [已隐藏]', 'info', 'debug');
-            getUI().log(`📦 请求体关键字段:`, 'info', 'debug');
-            getUI().log(`  • model: ${body.model}`, 'info', 'debug');
-            getUI().log(`  • temperature: ${body.temperature}`, 'info', 'debug');
-            getUI().log(`  • max_tokens: ${body.max_tokens}`, 'info', 'debug');
-            getUI().log(`  • stream: ${body.stream}`, 'info', 'debug');
-            if (body.thinking) {
-                getUI().log(`  • thinking: ${JSON.stringify(body.thinking)}`, 'warning', 'debug');
-            }
-            getUI().log(`📄 完整请求体 JSON (前 800 字符):`, 'info', 'debug');
-            getUI().log(JSON.stringify(body, null, 2).substring(0, 800), 'info', 'debug');
-            getUI().log('────────────────────────────', 'info', 'debug');
-
-            // 🆕 添加等待提示
-            getUI().log('⏳ 正在发送请求...', 'info', 'debug');
-            // 🆕 等待动画（每2秒输出一次）
-            let waitCount = 0;
-            const waitTimer = setInterval(() => {
-                waitCount++;
-                getUI().log(`⏳ 等待服务器响应... (${waitCount * 2}秒)`, 'info', 'debug');
-            }, 2000);
-
-            GM_xmlhttpRequest({
-                method: 'POST',
-                url: endpoint,
-                headers: headers,
-                data: JSON.stringify(body),
-                timeout: 30000,
-                onload: (response) => {
-                    clearInterval(waitTimer); // 🆕 清除等待动画
-                    getUI().log('✅ 收到响应', 'success');
-                    getUI().log('──────── 📥 响应详情 ────────', 'info', 'debug');
-                    getUI().log(`📊 状态码: ${response.status} ${response.statusText}`, 'info', 'debug');
-                    getUI().log(`📄 响应体前 1000 字符（思考内容已省略）:`, 'info', 'debug');
-                    getUI().log(sanitizeDebugResponse(response.responseText, 1000), 'info', 'debug');
-                    getUI().log('────────────────────────────', 'info', 'debug');
-                    try {
-                        if (response.status !== 200) {
-                            getUI().log(`❌ HTTP ${response.status}: ${response.statusText}`, 'error');
-                            reject(new Error(`HTTP ${response.status}: ${sanitizeDebugResponse(response.responseText, 200)}`));
-                            return;
-                        }
-
-                        const data = JSON.parse(response.responseText);
-                        const extraction = extractFinalContent(data);
-
-                        if (!extraction.hasSupportedMessageShape) {
-                            getUI().log(`⚠️ 未知响应格式: ${JSON.stringify(data).substring(0, 300)}`, 'error');
-                            throw new Error('API 返回了不支持的格式，请检查模型是否正确');
-                        }
-
-                        const content = extraction.content;
-
-                        if (extraction.hasReasoning) {
-                            getUI().log('🧠 检测到模型返回思考内容，已忽略，仅使用最终回答', 'info', 'debug');
-                        }
-
-                        if (!content) {
-                            // 🆕 更详细的空内容错误提示
-                            if (extraction.hasReasoning) {
-                                throw new Error(
-                                    '模型未返回最终回答\n\n' +
-                                    'API 只返回了思考内容，脚本不会把思考过程当作判定结果。\n' +
-                                    '请降低/关闭思考模式，或切换到会返回最终 content 的模型。'
-                                );
-                            }
-
-                            throw new Error('API 返回空内容\n\n原始响应片段:\n' + sanitizeDebugResponse(response.responseText, 500));
-                        }
-
-                        getUI().log('✅ AI 响应成功', 'success');
-                        resolve(content);
-
-                    } catch (e) {
-                        getUI().log(`💥 解析失败: ${e.message}`, 'error');
-                        reject(new Error(`${e.message}\n原始响应: ${sanitizeDebugResponse(response.responseText, 500)}`));
-                    }
-                },
-                onerror: (error) => {
-                    clearInterval(waitTimer); // 🆕 清除等待动画
-                    const msg = `🌐 网络错误 - ${error.statusText || error.error || '连接失败'}`;
-                    getUI().log(msg, 'error');
-                    reject(new Error(msg));
-                },
-                ontimeout: () => {
-                    clearInterval(waitTimer); // 🆕 清除等待动画
-                    getUI().log('⏱️ 请求超时（30秒）', 'error');
-                    reject(new Error('请求超时，可能是网络问题或模型响应过慢'));
-                }
-            });
+            sendOpenAICompatibleChatRequest({
+                endpoint,
+                headers,
+                baseBody,
+                tokenMode,
+                requestKey
+            }).then(resolve, reject);
         });
     },
 

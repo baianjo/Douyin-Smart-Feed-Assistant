@@ -10,17 +10,32 @@ import {
 } from '../../src/ai/ai-service';
 import { setUI } from '../../src/runtime/context';
 
-const setMockResponse = (responseText: string, status = 200) => {
+type MockResponse = {
+  responseText: string;
+  status?: number;
+  statusText?: string;
+};
+
+const setMockResponses = (responses: MockResponse[]) => {
+  let index = 0;
   const request = vi.fn((details: any) => {
+    const response = responses[Math.min(index, responses.length - 1)];
+    index += 1;
+
+    const status = response.status ?? 200;
     details.onload?.({
       status,
-      statusText: status === 200 ? 'OK' : 'ERROR',
-      responseText,
+      statusText: response.statusText ?? (status === 200 ? 'OK' : 'ERROR'),
+      responseText: response.responseText,
     });
   });
 
   vi.stubGlobal('GM_xmlhttpRequest', request);
   return request;
+};
+
+const setMockResponse = (responseText: string, status = 200) => {
+  return setMockResponses([{ responseText, status }]);
 };
 
 describe('AI service compatibility', () => {
@@ -126,9 +141,154 @@ describe('AI service compatibility', () => {
     expect(request.mock.calls[0][0].url).toBe('https://example.com/v1/chat/completions');
     expect(payload.model).toBe('gpt-4o-mini');
     expect(payload.stream).toBe(false);
+    expect(payload.max_tokens).toBe(500);
+    expect(payload).not.toHaveProperty('max_completion_tokens');
     expect(payload).not.toHaveProperty('vendorSpecific');
     expect(payload).not.toHaveProperty('thinking');
     expect(payload).not.toHaveProperty('extra_body');
+  });
+
+  it('still starts with max_tokens for gpt-5 style model names on relay APIs', async () => {
+    setUI({ log: vi.fn() });
+    const request = setMockResponse(JSON.stringify({
+      choices: [{ message: { content: '连接成功' } }],
+    }));
+
+    await AIService.callAPI([{ role: 'user', content: 'hello' }], {
+      apiKey: 'sk-test',
+      apiProvider: 'custom',
+      customEndpoint: 'https://relay.example.com',
+      customModel: 'gpt-5.4-mini',
+    });
+
+    const payload = JSON.parse(request.mock.calls[0][0].data as string);
+    expect(payload.max_tokens).toBe(500);
+    expect(payload).not.toHaveProperty('max_completion_tokens');
+  });
+
+  it('retries with max_completion_tokens when max_tokens is explicitly unsupported and reuses that mode', async () => {
+    setUI({ log: vi.fn() });
+    const request = setMockResponses([
+      {
+        status: 400,
+        responseText: JSON.stringify({
+          error: {
+            message: "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+            type: 'invalid_request_error',
+            param: 'max_tokens',
+            code: 'unsupported_parameter',
+          },
+        }),
+      },
+      {
+        responseText: JSON.stringify({
+          choices: [{ message: { content: '连接成功' } }],
+        }),
+      },
+      {
+        responseText: JSON.stringify({
+          choices: [{ message: { content: '再次成功' } }],
+        }),
+      },
+    ]);
+    const config = {
+      apiKey: 'sk-test',
+      apiProvider: 'custom',
+      customEndpoint: 'https://relay.example.com',
+      customModel: 'gpt-5.4-mini',
+    };
+
+    await AIService.callAPI([{ role: 'user', content: 'hello' }], config);
+    await AIService.callAPI([{ role: 'user', content: 'hello again' }], config);
+
+    expect(request).toHaveBeenCalledTimes(3);
+
+    const firstPayload = JSON.parse(request.mock.calls[0][0].data as string);
+    const secondPayload = JSON.parse(request.mock.calls[1][0].data as string);
+    const thirdPayload = JSON.parse(request.mock.calls[2][0].data as string);
+
+    expect(firstPayload.max_tokens).toBe(500);
+    expect(firstPayload).not.toHaveProperty('max_completion_tokens');
+    expect(secondPayload.max_completion_tokens).toBe(500);
+    expect(secondPayload).not.toHaveProperty('max_tokens');
+    expect(thirdPayload.max_completion_tokens).toBe(500);
+    expect(thirdPayload).not.toHaveProperty('max_tokens');
+  });
+
+  it('removes the token limit after both token parameter names are explicitly rejected', async () => {
+    setUI({ log: vi.fn() });
+    const request = setMockResponses([
+      {
+        status: 400,
+        responseText: JSON.stringify({
+          error: {
+            message: "Unsupported parameter: 'max_tokens' is not supported with this model. Use 'max_completion_tokens' instead.",
+            type: 'invalid_request_error',
+            param: 'max_tokens',
+            code: 'unsupported_parameter',
+          },
+        }),
+      },
+      {
+        status: 400,
+        responseText: JSON.stringify({
+          error: {
+            message: "Unsupported parameter: 'max_completion_tokens' is not supported with this model.",
+            type: 'invalid_request_error',
+            param: 'max_completion_tokens',
+            code: 'unsupported_parameter',
+          },
+        }),
+      },
+      {
+        responseText: JSON.stringify({
+          choices: [{ message: { content: '连接成功' } }],
+        }),
+      },
+    ]);
+
+    await AIService.callAPI([{ role: 'user', content: 'hello' }], {
+      apiKey: 'sk-test',
+      apiProvider: 'custom',
+      customEndpoint: 'https://strict-relay.example.com',
+      customModel: 'gpt-5.4-mini',
+    });
+
+    expect(request).toHaveBeenCalledTimes(3);
+
+    const firstPayload = JSON.parse(request.mock.calls[0][0].data as string);
+    const secondPayload = JSON.parse(request.mock.calls[1][0].data as string);
+    const thirdPayload = JSON.parse(request.mock.calls[2][0].data as string);
+
+    expect(firstPayload.max_tokens).toBe(500);
+    expect(firstPayload).not.toHaveProperty('max_completion_tokens');
+    expect(secondPayload.max_completion_tokens).toBe(500);
+    expect(secondPayload).not.toHaveProperty('max_tokens');
+    expect(thirdPayload).not.toHaveProperty('max_tokens');
+    expect(thirdPayload).not.toHaveProperty('max_completion_tokens');
+  });
+
+  it('does not retry non-token compatibility errors', async () => {
+    setUI({ log: vi.fn() });
+    const request = setMockResponse(JSON.stringify({
+      error: {
+        message: 'The selected model does not exist',
+        type: 'invalid_request_error',
+        param: 'model',
+        code: 'model_not_found',
+      },
+    }), 400);
+
+    await expect(AIService.callAPI([{ role: 'user', content: 'hello' }], {
+      apiKey: 'sk-test',
+      apiProvider: 'custom',
+      customEndpoint: 'https://model-error.example.com',
+      customModel: 'gpt-5.4-mini',
+    })).rejects.toThrow('HTTP 400');
+
+    expect(request).toHaveBeenCalledTimes(1);
+    const payload = JSON.parse(request.mock.calls[0][0].data as string);
+    expect(payload.max_tokens).toBe(500);
   });
 
   it('fetches models from the normalized /models endpoint without selecting a custom default', async () => {

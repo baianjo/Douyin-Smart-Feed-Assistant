@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 2.3.5 - 2026-06-03
+
+- Keep custom OpenAI-compatible relay requests on `max_tokens: 500` by default instead of inferring request parameters from GPT-5-style model names.
+- Automatically retry with `max_completion_tokens` only when a relay explicitly rejects `max_tokens`, and fall back one more time without a token limit if both parameter names are unsupported.
+- Reuse the successful token-parameter mode per `endpoint + model` during the current run, update the custom API documentation, and rebuild the userscript artifact.
+
 ## 2.3.4 - 2026-05-15
 
 - Roll back the in-page assistant panel styling to the 2.3.2 appearance after user feedback on the 2.3.3 redesign.

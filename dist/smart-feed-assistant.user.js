@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         抖音推荐影响器 (Smart Feed Assistant)
 // @namespace    https://github.com/baianjo/Douyin-Smart-Feed-Assistant
-// @version      2.3.4
+// @version      2.3.5
 // @description  通过AI智能分析内容，优化你的信息流体验
 // @author       Baianjo
 // @match        *://www.douyin.com/*
@@ -510,6 +510,193 @@
       return responseText.substring(0, maxLength);
     }
   };
+  var tokenParameterPreferenceByRequestKey = /* @__PURE__ */ new Map();
+  var getTokenPreferenceKey = (endpoint, modelName) => {
+    return `${endpoint}
+${(modelName || "").trim()}`;
+  };
+  var getConfiguredTokenLimit = (requestParams) => {
+    const value = requestParams?.max_tokens ?? requestParams?.max_completion_tokens;
+    return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : null;
+  };
+  var getInitialTokenParameterMode = (requestKey) => {
+    return tokenParameterPreferenceByRequestKey.get(requestKey) || "max_tokens";
+  };
+  var buildOpenAICompatibleRequestBody = (baseBody, tokenMode) => {
+    const requestParams = cloneRequestParams(CONFIG.openAICompatibleRequestParams);
+    const tokenLimit = getConfiguredTokenLimit(requestParams);
+    delete requestParams.max_tokens;
+    delete requestParams.max_completion_tokens;
+    const body = {
+      ...baseBody,
+      ...requestParams
+    };
+    if (tokenMode !== "none" && tokenLimit !== null) {
+      body[tokenMode] = tokenLimit;
+    }
+    return body;
+  };
+  var getBodyTokenParameterMode = (body) => {
+    if (Object.prototype.hasOwnProperty.call(body, "max_tokens")) {
+      return "max_tokens";
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "max_completion_tokens")) {
+      return "max_completion_tokens";
+    }
+    return "none";
+  };
+  var formatTokenParameterForLog = (body) => {
+    const mode = getBodyTokenParameterMode(body);
+    if (mode === "none") {
+      return "token_limit=\u672A\u53D1\u9001";
+    }
+    return `${mode}=${body[mode]}`;
+  };
+  var parseUnsupportedTokenParameter = (responseText) => {
+    let errorParam = "";
+    let errorCode = "";
+    let message = responseText || "";
+    try {
+      const data = JSON.parse(responseText);
+      errorParam = typeof data?.error?.param === "string" ? data.error.param : "";
+      errorCode = typeof data?.error?.code === "string" ? data.error.code : "";
+      message = typeof data?.error?.message === "string" ? data.error.message : responseText;
+    } catch {
+    }
+    if (errorCode && errorCode !== "unsupported_parameter") {
+      return "";
+    }
+    if (errorParam === "max_tokens" || errorParam === "max_completion_tokens") {
+      return errorParam;
+    }
+    const unsupportedMatch = message.match(/unsupported parameter:?\s*['"`]?(max_tokens|max_completion_tokens)['"`]?/i) || message.match(/['"`](max_tokens|max_completion_tokens)['"`]\s+is not supported/i);
+    if (unsupportedMatch && /unsupported[_\s-]?parameter|not supported/i.test(`${errorCode} ${message}`)) {
+      return unsupportedMatch[1];
+    }
+    return "";
+  };
+  var getFallbackTokenParameterMode = (currentMode, responseText) => {
+    const unsupportedParameter = parseUnsupportedTokenParameter(responseText);
+    if (currentMode === "max_tokens" && unsupportedParameter === "max_tokens") {
+      return "max_completion_tokens";
+    }
+    if (currentMode === "max_completion_tokens" && unsupportedParameter === "max_completion_tokens") {
+      return "none";
+    }
+    return "";
+  };
+  var describeTokenParameterMode = (mode) => {
+    return mode === "none" ? "\u4E0D\u53D1\u9001 token \u9650\u5236" : mode;
+  };
+  var sendOpenAICompatibleChatRequest = ({
+    endpoint,
+    headers,
+    baseBody,
+    tokenMode,
+    requestKey
+  }) => {
+    const body = buildOpenAICompatibleRequestBody(baseBody, tokenMode);
+    const actualTokenMode = getBodyTokenParameterMode(body);
+    getUI().log(`\u{1F4E1} \u8BF7\u6C42\u5730\u5740: ${endpoint}`, "info", "debug");
+    getUI().log(`\u{1F916} \u4F7F\u7528\u6A21\u578B: ${body.model}`, "info", "debug");
+    getUI().log(`\u2699\uFE0F \u53C2\u6570: temperature=${body.temperature}, ${formatTokenParameterForLog(body)}, stream=${body.stream}`, "info", "debug");
+    getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u{1F4E1} \u8BF7\u6C42\u8BE6\u60C5 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
+    getUI().log(`\u{1F310} \u5B8C\u6574 URL: ${endpoint}`, "info", "debug");
+    getUI().log("\u{1F511} Authorization: Bearer [\u5DF2\u9690\u85CF]", "info", "debug");
+    getUI().log("\u{1F4E6} \u8BF7\u6C42\u4F53\u5173\u952E\u5B57\u6BB5:", "info", "debug");
+    getUI().log(`  \u2022 model: ${body.model}`, "info", "debug");
+    getUI().log(`  \u2022 temperature: ${body.temperature}`, "info", "debug");
+    getUI().log(`  \u2022 ${formatTokenParameterForLog(body)}`, "info", "debug");
+    getUI().log(`  \u2022 stream: ${body.stream}`, "info", "debug");
+    if (body.thinking) {
+      getUI().log(`  \u2022 thinking: ${JSON.stringify(body.thinking)}`, "warning", "debug");
+    }
+    getUI().log("\u{1F4C4} \u5B8C\u6574\u8BF7\u6C42\u4F53 JSON (\u524D 800 \u5B57\u7B26):", "info", "debug");
+    getUI().log(JSON.stringify(body, null, 2).substring(0, 800), "info", "debug");
+    getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
+    getUI().log("\u23F3 \u6B63\u5728\u53D1\u9001\u8BF7\u6C42...", "info", "debug");
+    return new Promise((resolve, reject) => {
+      let waitCount = 0;
+      const waitTimer = setInterval(() => {
+        waitCount++;
+        getUI().log(`\u23F3 \u7B49\u5F85\u670D\u52A1\u5668\u54CD\u5E94... (${waitCount * 2}\u79D2)`, "info", "debug");
+      }, 2e3);
+      GM_xmlhttpRequest({
+        method: "POST",
+        url: endpoint,
+        headers,
+        data: JSON.stringify(body),
+        timeout: 3e4,
+        onload: (response) => {
+          clearInterval(waitTimer);
+          getUI().log("\u2705 \u6536\u5230\u54CD\u5E94", "success");
+          getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u{1F4E5} \u54CD\u5E94\u8BE6\u60C5 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
+          getUI().log(`\u{1F4CA} \u72B6\u6001\u7801: ${response.status} ${response.statusText}`, "info", "debug");
+          getUI().log("\u{1F4C4} \u54CD\u5E94\u4F53\u524D 1000 \u5B57\u7B26\uFF08\u601D\u8003\u5185\u5BB9\u5DF2\u7701\u7565\uFF09:", "info", "debug");
+          getUI().log(sanitizeDebugResponse(response.responseText, 1e3), "info", "debug");
+          getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
+          try {
+            if (response.status !== 200) {
+              const fallbackTokenMode = getFallbackTokenParameterMode(actualTokenMode, response.responseText);
+              if (fallbackTokenMode) {
+                getUI().log(
+                  `\u26A0\uFE0F \u63A5\u53E3\u663E\u5F0F\u62A5\u9519\u4E0D\u652F\u6301 ${describeTokenParameterMode(actualTokenMode)}\uFF0C\u6539\u4E3A ${describeTokenParameterMode(fallbackTokenMode)} \u540E\u91CD\u8BD5`,
+                  "warning"
+                );
+                sendOpenAICompatibleChatRequest({
+                  endpoint,
+                  headers,
+                  baseBody,
+                  tokenMode: fallbackTokenMode,
+                  requestKey
+                }).then(resolve, reject);
+                return;
+              }
+              getUI().log(`\u274C HTTP ${response.status}: ${response.statusText}`, "error");
+              reject(new Error(`HTTP ${response.status}: ${sanitizeDebugResponse(response.responseText, 200)}`));
+              return;
+            }
+            const data = JSON.parse(response.responseText);
+            const extraction = extractFinalContent(data);
+            if (!extraction.hasSupportedMessageShape) {
+              getUI().log(`\u26A0\uFE0F \u672A\u77E5\u54CD\u5E94\u683C\u5F0F: ${JSON.stringify(data).substring(0, 300)}`, "error");
+              throw new Error("API \u8FD4\u56DE\u4E86\u4E0D\u652F\u6301\u7684\u683C\u5F0F\uFF0C\u8BF7\u68C0\u67E5\u6A21\u578B\u662F\u5426\u6B63\u786E");
+            }
+            const content = extraction.content;
+            if (extraction.hasReasoning) {
+              getUI().log("\u{1F9E0} \u68C0\u6D4B\u5230\u6A21\u578B\u8FD4\u56DE\u601D\u8003\u5185\u5BB9\uFF0C\u5DF2\u5FFD\u7565\uFF0C\u4EC5\u4F7F\u7528\u6700\u7EC8\u56DE\u7B54", "info", "debug");
+            }
+            if (!content) {
+              if (extraction.hasReasoning) {
+                throw new Error(
+                  "\u6A21\u578B\u672A\u8FD4\u56DE\u6700\u7EC8\u56DE\u7B54\n\nAPI \u53EA\u8FD4\u56DE\u4E86\u601D\u8003\u5185\u5BB9\uFF0C\u811A\u672C\u4E0D\u4F1A\u628A\u601D\u8003\u8FC7\u7A0B\u5F53\u4F5C\u5224\u5B9A\u7ED3\u679C\u3002\n\u8BF7\u964D\u4F4E/\u5173\u95ED\u601D\u8003\u6A21\u5F0F\uFF0C\u6216\u5207\u6362\u5230\u4F1A\u8FD4\u56DE\u6700\u7EC8 content \u7684\u6A21\u578B\u3002"
+                );
+              }
+              throw new Error("API \u8FD4\u56DE\u7A7A\u5185\u5BB9\n\n\u539F\u59CB\u54CD\u5E94\u7247\u6BB5:\n" + sanitizeDebugResponse(response.responseText, 500));
+            }
+            tokenParameterPreferenceByRequestKey.set(requestKey, actualTokenMode);
+            getUI().log("\u2705 AI \u54CD\u5E94\u6210\u529F", "success");
+            resolve(content);
+          } catch (e) {
+            getUI().log(`\u{1F4A5} \u89E3\u6790\u5931\u8D25: ${e.message}`, "error");
+            reject(new Error(`${e.message}
+\u539F\u59CB\u54CD\u5E94: ${sanitizeDebugResponse(response.responseText, 500)}`));
+          }
+        },
+        onerror: (error) => {
+          clearInterval(waitTimer);
+          const msg = `\u{1F310} \u7F51\u7EDC\u9519\u8BEF - ${error.statusText || error.error || "\u8FDE\u63A5\u5931\u8D25"}`;
+          getUI().log(msg, "error");
+          reject(new Error(msg));
+        },
+        ontimeout: () => {
+          clearInterval(waitTimer);
+          getUI().log("\u23F1\uFE0F \u8BF7\u6C42\u8D85\u65F6\uFF0830\u79D2\uFF09", "error");
+          reject(new Error("\u8BF7\u6C42\u8D85\u65F6\uFF0C\u53EF\u80FD\u662F\u7F51\u7EDC\u95EE\u9898\u6216\u6A21\u578B\u54CD\u5E94\u8FC7\u6162"));
+        }
+      });
+    });
+  };
   var AIService = {
     /*
      * 调用AI API
@@ -542,92 +729,16 @@
           model: modelName,
           messages
         };
-        const body = {
-          ...baseBody,
-          ...cloneRequestParams(CONFIG.openAICompatibleRequestParams)
-        };
+        const requestKey = getTokenPreferenceKey(endpoint, modelName);
+        const tokenMode = getInitialTokenParameterMode(requestKey);
         getUI().log("\u2139\uFE0F \u4F7F\u7528 OpenAI \u517C\u5BB9\u901A\u7528\u8BF7\u6C42\u4F53\uFF0C\u4E0D\u6CE8\u5165\u5382\u5546\u4E13\u5C5E\u53C2\u6570", "info", "debug");
-        getUI().log(`\u{1F4E1} \u8BF7\u6C42\u5730\u5740: ${endpoint}`, "info", "debug");
-        getUI().log(`\u{1F916} \u4F7F\u7528\u6A21\u578B: ${body.model}`, "info", "debug");
-        getUI().log(`\u2699\uFE0F \u53C2\u6570: temperature=${body.temperature}, max_tokens=${body.max_tokens}, stream=${body.stream}`, "info", "debug");
-        getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u{1F4E1} \u8BF7\u6C42\u8BE6\u60C5 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
-        getUI().log(`\u{1F310} \u5B8C\u6574 URL: ${endpoint}`, "info", "debug");
-        getUI().log("\u{1F511} Authorization: Bearer [\u5DF2\u9690\u85CF]", "info", "debug");
-        getUI().log(`\u{1F4E6} \u8BF7\u6C42\u4F53\u5173\u952E\u5B57\u6BB5:`, "info", "debug");
-        getUI().log(`  \u2022 model: ${body.model}`, "info", "debug");
-        getUI().log(`  \u2022 temperature: ${body.temperature}`, "info", "debug");
-        getUI().log(`  \u2022 max_tokens: ${body.max_tokens}`, "info", "debug");
-        getUI().log(`  \u2022 stream: ${body.stream}`, "info", "debug");
-        if (body.thinking) {
-          getUI().log(`  \u2022 thinking: ${JSON.stringify(body.thinking)}`, "warning", "debug");
-        }
-        getUI().log(`\u{1F4C4} \u5B8C\u6574\u8BF7\u6C42\u4F53 JSON (\u524D 800 \u5B57\u7B26):`, "info", "debug");
-        getUI().log(JSON.stringify(body, null, 2).substring(0, 800), "info", "debug");
-        getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
-        getUI().log("\u23F3 \u6B63\u5728\u53D1\u9001\u8BF7\u6C42...", "info", "debug");
-        let waitCount = 0;
-        const waitTimer = setInterval(() => {
-          waitCount++;
-          getUI().log(`\u23F3 \u7B49\u5F85\u670D\u52A1\u5668\u54CD\u5E94... (${waitCount * 2}\u79D2)`, "info", "debug");
-        }, 2e3);
-        GM_xmlhttpRequest({
-          method: "POST",
-          url: endpoint,
+        sendOpenAICompatibleChatRequest({
+          endpoint,
           headers,
-          data: JSON.stringify(body),
-          timeout: 3e4,
-          onload: (response) => {
-            clearInterval(waitTimer);
-            getUI().log("\u2705 \u6536\u5230\u54CD\u5E94", "success");
-            getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500 \u{1F4E5} \u54CD\u5E94\u8BE6\u60C5 \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
-            getUI().log(`\u{1F4CA} \u72B6\u6001\u7801: ${response.status} ${response.statusText}`, "info", "debug");
-            getUI().log(`\u{1F4C4} \u54CD\u5E94\u4F53\u524D 1000 \u5B57\u7B26\uFF08\u601D\u8003\u5185\u5BB9\u5DF2\u7701\u7565\uFF09:`, "info", "debug");
-            getUI().log(sanitizeDebugResponse(response.responseText, 1e3), "info", "debug");
-            getUI().log("\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500", "info", "debug");
-            try {
-              if (response.status !== 200) {
-                getUI().log(`\u274C HTTP ${response.status}: ${response.statusText}`, "error");
-                reject(new Error(`HTTP ${response.status}: ${sanitizeDebugResponse(response.responseText, 200)}`));
-                return;
-              }
-              const data = JSON.parse(response.responseText);
-              const extraction = extractFinalContent(data);
-              if (!extraction.hasSupportedMessageShape) {
-                getUI().log(`\u26A0\uFE0F \u672A\u77E5\u54CD\u5E94\u683C\u5F0F: ${JSON.stringify(data).substring(0, 300)}`, "error");
-                throw new Error("API \u8FD4\u56DE\u4E86\u4E0D\u652F\u6301\u7684\u683C\u5F0F\uFF0C\u8BF7\u68C0\u67E5\u6A21\u578B\u662F\u5426\u6B63\u786E");
-              }
-              const content = extraction.content;
-              if (extraction.hasReasoning) {
-                getUI().log("\u{1F9E0} \u68C0\u6D4B\u5230\u6A21\u578B\u8FD4\u56DE\u601D\u8003\u5185\u5BB9\uFF0C\u5DF2\u5FFD\u7565\uFF0C\u4EC5\u4F7F\u7528\u6700\u7EC8\u56DE\u7B54", "info", "debug");
-              }
-              if (!content) {
-                if (extraction.hasReasoning) {
-                  throw new Error(
-                    "\u6A21\u578B\u672A\u8FD4\u56DE\u6700\u7EC8\u56DE\u7B54\n\nAPI \u53EA\u8FD4\u56DE\u4E86\u601D\u8003\u5185\u5BB9\uFF0C\u811A\u672C\u4E0D\u4F1A\u628A\u601D\u8003\u8FC7\u7A0B\u5F53\u4F5C\u5224\u5B9A\u7ED3\u679C\u3002\n\u8BF7\u964D\u4F4E/\u5173\u95ED\u601D\u8003\u6A21\u5F0F\uFF0C\u6216\u5207\u6362\u5230\u4F1A\u8FD4\u56DE\u6700\u7EC8 content \u7684\u6A21\u578B\u3002"
-                  );
-                }
-                throw new Error("API \u8FD4\u56DE\u7A7A\u5185\u5BB9\n\n\u539F\u59CB\u54CD\u5E94\u7247\u6BB5:\n" + sanitizeDebugResponse(response.responseText, 500));
-              }
-              getUI().log("\u2705 AI \u54CD\u5E94\u6210\u529F", "success");
-              resolve(content);
-            } catch (e) {
-              getUI().log(`\u{1F4A5} \u89E3\u6790\u5931\u8D25: ${e.message}`, "error");
-              reject(new Error(`${e.message}
-\u539F\u59CB\u54CD\u5E94: ${sanitizeDebugResponse(response.responseText, 500)}`));
-            }
-          },
-          onerror: (error) => {
-            clearInterval(waitTimer);
-            const msg = `\u{1F310} \u7F51\u7EDC\u9519\u8BEF - ${error.statusText || error.error || "\u8FDE\u63A5\u5931\u8D25"}`;
-            getUI().log(msg, "error");
-            reject(new Error(msg));
-          },
-          ontimeout: () => {
-            clearInterval(waitTimer);
-            getUI().log("\u23F1\uFE0F \u8BF7\u6C42\u8D85\u65F6\uFF0830\u79D2\uFF09", "error");
-            reject(new Error("\u8BF7\u6C42\u8D85\u65F6\uFF0C\u53EF\u80FD\u662F\u7F51\u7EDC\u95EE\u9898\u6216\u6A21\u578B\u54CD\u5E94\u8FC7\u6162"));
-          }
-        });
+          baseBody,
+          tokenMode,
+          requestKey
+        }).then(resolve, reject);
       });
     },
     fetchModels: async (config) => {
